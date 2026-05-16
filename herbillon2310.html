@@ -1,0 +1,2380 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم بلدية شطايبي</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #059669; border-radius: 4px; }
+        .tab-btn.active { background: #059669; color: white; box-shadow: 0 4px 14px rgba(5,150,105,0.3); }
+        .tab-btn:not(.active) { background: white; color: #374151; border: 1px solid #e5e7eb; }
+        .fade-in { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .toast-admin { transition: all 0.4s cubic-bezier(0.16,1,0.3,1); transform: translateY(-20px); opacity: 0; pointer-events: none; }
+        .toast-admin.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+        input[type="text"], input[type="url"], input[type="date"], input[type="number"], select, textarea {
+            width: 100%; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 12px;
+            font-size: 14px; font-family: 'Cairo', sans-serif; transition: border-color 0.2s;
+            background: white; color: #1f2937;
+        }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.1); }
+        textarea { resize: vertical; min-height: 100px; }
+        .item-card { background: white; border: 1px solid #f3f4f6; border-radius: 16px; padding: 16px; transition: all 0.2s; }
+        .item-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+        /* ✅ Form panel — modal overlay على كل الأحجام */
+        .form-panel {
+            display: none;
+        }
+        .form-panel.mobile-open {
+            display: block;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            z-index: 200;
+            background: white;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            padding: 60px 16px 80px;
+            box-sizing: border-box;
+        }
+        @media (min-width: 1024px) {
+            .form-panel.mobile-open {
+                top: 64px;
+                left: auto;
+                right: 16px;
+                bottom: 16px;
+                width: 480px;
+                border-radius: 20px;
+                box-shadow: 0 24px 60px rgba(0,0,0,0.18);
+                padding: 24px 24px 80px;
+            }
+            .mobile-add-btn { display: none; }
+        }
+        .form-panel.mobile-open .form-close-mobile { display: flex; }
+        /* زر الإغلاق العائم */
+        .form-close-mobile {
+            display: none;
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 210;
+            align-items: center;
+            gap: 6px;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 8px 14px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        /* Upload Widget */
+        .upload-widget { border: 2px dashed #d1d5db; border-radius: 12px; background: #f9fafb; transition: all 0.2s; }
+        .upload-widget:hover { border-color: #059669; background: #f0fdf4; }
+        .upload-widget.has-image { border-color: #059669; border-style: solid; background: white; }
+        .upload-widget.uploading { border-color: #6366f1; background: #eef2ff; pointer-events: none; }
+        .album-thumb { position: relative; border-radius: 8px; overflow: hidden; }
+        .album-thumb img { width: 100%; height: 64px; object-fit: cover; display: block; }
+        .album-thumb .rm { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; background: rgba(220,38,38,0.9); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 9px; line-height: 1; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 0.8s linear infinite; display: inline-block; }
+        /* Repo bar */
+        .repo-bar-track { width:100%; height:8px; background:#f1f5f9; border-radius:99px; overflow:hidden; }
+        .repo-bar-fill { height:100%; border-radius:99px; transition:width 0.7s; background:linear-gradient(90deg,#059669,#34d399); }
+        .repo-bar-fill.warn { background:linear-gradient(90deg,#d97706,#fbbf24); }
+        .repo-bar-fill.danger { background:linear-gradient(90deg,#dc2626,#f87171); }
+        /* Modal backdrop */
+        .panel-backdrop {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 199;
+            backdrop-filter: blur(2px);
+        }
+        .panel-backdrop.active { display: block; }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+<div id="panel-backdrop" class="panel-backdrop" onclick="closeAllPanels()"></div>
+
+<div id="admin-toast" class="toast-admin fixed top-6 left-1/2 -translate-x-1/2 z-[100] bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 text-sm font-bold">
+    <span class="iconify text-lg" data-icon="lucide:check-circle"></span>
+    <span id="admin-toast-msg">تم بنجاح</span>
+</div>
+
+<!-- LOGIN -->
+<div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-bl from-emerald-800 via-emerald-700 to-emerald-900">
+    <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 text-center">
+        <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-emerald-600 shadow-lg mx-auto mb-5">
+            <img src="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/logo.webp" class="w-full h-full object-cover">
+        </div>
+        <h1 class="text-2xl font-extrabold text-gray-800 mb-1">لوحة تحكم البلدية</h1>
+        <p class="text-sm text-gray-500 mb-1">بلدية شطايبي — ولاية عنابة</p>
+        <p class="text-[10px] text-gray-400 mb-8">وزارة الداخلية والجماعات المحلية والتهيئة العمرانية</p>
+        <div class="space-y-4">
+            <div class="text-right"><label class="text-xs font-bold text-gray-500 mb-1 block">اسم المستخدم</label><input id="login-username" type="text" value="admin" class="text-center"></div>
+            <div class="text-right"><label class="text-xs font-bold text-gray-500 mb-1 block">كلمة المرور</label><input id="login-password" type="password" placeholder="••••••••" class="text-center" onkeydown="if(event.key==='Enter')login()"></div>
+            <div id="login-error" class="text-red-500 text-xs font-bold hidden">اسم المستخدم أو كلمة المرور غير صحيحة</div>
+            <button onclick="login()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors shadow-md">
+                <span class="iconify inline-block ml-2" data-icon="lucide:log-in"></span>تسجيل الدخول
+            </button>
+        </div>
+        <p class="text-[10px] text-gray-400 mt-6">الوصول مخصص للموظفين المصرح لهم فقط</p>
+    </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-emerald-600 flex-shrink-0">
+                    <img src="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/logo.webp" class="w-full h-full object-cover">
+                </div>
+                <div><h2 class="text-sm font-extrabold text-gray-800">لوحة التحكم</h2><p class="text-[10px] text-gray-500">بلدية شطايبي</p></div>
+            </div>
+            <button onclick="logout()" class="text-xs bg-red-50 hover:bg-red-100 text-red-600 px-4 py-2 rounded-xl font-bold transition-colors flex items-center gap-1">
+                <span class="iconify" data-icon="lucide:log-out"></span> خروج
+            </button>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-4 py-6">
+
+        <!-- Repo size bar -->
+        <div class="bg-white rounded-2xl px-5 py-3 mb-5 shadow-sm border border-gray-100 flex items-center gap-4">
+            <span class="iconify text-emerald-500 flex-shrink-0" data-icon="lucide:hard-drive"></span>
+            <div class="flex-1">
+                <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-bold text-gray-600">مستودع الصور</span>
+                        <span id="repo-name-badge" class="text-[10px] bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-mono">--</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span id="repo-size-text" class="text-xs text-gray-400">--</span>
+                        <button onclick="loadRepoSize()" class="text-emerald-600 hover:text-emerald-700"><span id="repo-refresh-icon" class="iconify text-sm" data-icon="lucide:refresh-cw"></span></button>
+                    </div>
+                </div>
+                <div class="repo-bar-track"><div id="repo-bar-fill" class="repo-bar-fill" style="width:0%"></div></div>
+                <div id="repo-warning" class="hidden mt-1 text-[11px] text-amber-600 font-bold flex items-center gap-1">
+                    <span class="iconify text-xs" data-icon="lucide:alert-triangle"></span><span id="repo-warning-msg"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex flex-wrap gap-2 mb-8">
+            <button onclick="switchTab('news')" id="tab-news" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:newspaper"></span> الأخبار</button>
+            <button onclick="switchTab('services')" id="tab-services" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:file-text"></span> الخدمات</button>
+            <button onclick="switchTab('archives')" id="tab-archives" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:images"></span> الأرشيف</button>
+            <button onclick="switchTab('tourism')" id="tab-tourism" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:compass"></span> السياحة</button>
+            <button onclick="switchTab('mayors')" id="tab-mayors" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:users"></span> الرؤساء</button>
+            <button onclick="switchTab('beaches')" id="tab-beaches" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:waves"></span> الشواطئ</button>
+            <button onclick="switchTab('facilities')" id="tab-facilities" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:building-2"></span> المرافق</button>
+            <button onclick="switchTab('municipality')" id="tab-municipality" class="tab-btn px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1"><span class="iconify" data-icon="lucide:landmark"></span> مقر البلدية</button>
+        </div>
+
+        <!-- NEWS -->
+        <div id="section-news" class="content-section fade-in">
+            <!-- زر فتح المحرر -->
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('news')" id="btn-open-news"
+                        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة خبر جديد
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="form-panel-news" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="iconify text-emerald-500" data-icon="lucide:plus-circle"></span>
+                        <span id="news-form-title">إضافة خبر جديد</span>
+                    </h3>
+                    <input type="hidden" id="news-edit-id" value="">
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">العنوان (عربي)</label><input id="news-title" type="text" placeholder="عنوان الخبر..."></div>
+                        <!-- 🇫🇷 ترجمة فرنسية -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Titre — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="news-title-fr" type="text" placeholder="Titre de l'actualité en français..." class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">التصنيف</label>
+                            <select id="news-category">
+                                <option value="official">📢 إعلان رسمي</option>
+                                <option value="activity">🏗️ نشاط بلدي</option>
+                                <option value="social">🤝 ركن المجتمع</option>
+                                <option value="poster">🖼️ ملصق إعلاني</option>
+                            </select>
+                        </div>
+                        <div><label id="news-content-label" class="text-xs font-bold text-gray-500 mb-1 block">المحتوى (عربي)</label><textarea id="news-content" placeholder="نص الخبر الكامل..." rows="4"></textarea></div>
+                        <!-- 🇫🇷 ترجمة فرنسية للمحتوى -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Contenu — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="news-content-fr" placeholder="Texte complet de l'actualité en français..." rows="3" class="border-blue-200"></textarea>
+                        </div>
+
+                        <!-- ✅ 2: تصنيف حر اختياري -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block flex items-center gap-1">
+                                <span class="iconify text-emerald-400" data-icon="lucide:tag"></span>
+                                التصنيف المعروض <span class="text-gray-400 font-normal">(اختياري — يظهر تحت الصورة)</span>
+                            </label>
+                            <input id="news-custom-label" type="text" placeholder="مثال: حملة نظافة، نظافة المحيط، فعالية رياضية...">
+                            <p class="text-[10px] text-gray-400 mt-1">اتركه فارغاً لعدم إظهار أي تصنيف</p>
+                        </div>
+                        <!-- 🇫🇷 custom label -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-2 block">🇫🇷 Étiquette — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="news-custom-label-fr" type="text" placeholder="Ex: Campagne propreté, Événement sportif..." class="border-blue-200">
+                        </div>
+                        <!-- الصورة المميزة — مع خيارات جاهزة للإعلانات الرسمية -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-2 block">🖼️ الصورة المميزة</label>
+
+                            <!-- ✅ خيارات الصور الجاهزة — تظهر فقط للإعلانات الرسمية -->
+                            <div id="news-preset-wrap" class="hidden mb-3">
+                                <p class="text-[11px] text-gray-400 mb-2 font-semibold">اختر نوع الإعلان (صورة جاهزة):</p>
+                                <div class="grid grid-cols-2 gap-2" id="news-preset-grid">
+                                    <!-- إعلان -->
+                                    <button type="button" onclick="selectPresetImage('announcement')"
+                                        class="preset-img-btn border-2 border-gray-200 rounded-xl overflow-hidden hover:border-emerald-400 transition-all text-right group"
+                                        data-ar="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Announcement.webp"
+                                        data-fr="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/annonce.webp">
+                                        <img src="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Announcement.webp"
+                                             class="w-full h-16 object-cover group-hover:scale-105 transition-transform">
+                                        <p class="text-[10px] font-bold text-gray-600 px-2 py-1">📢 إعلان</p>
+                                    </button>
+                                    <!-- استشارة -->
+                                    <button type="button" onclick="selectPresetImage('consultation')"
+                                        class="preset-img-btn border-2 border-gray-200 rounded-xl overflow-hidden hover:border-emerald-400 transition-all text-right group"
+                                        data-ar="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Consultation.webp"
+                                        data-fr="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/consultation.webp">
+                                        <img src="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Consultation.webp"
+                                             class="w-full h-16 object-cover group-hover:scale-105 transition-transform">
+                                        <p class="text-[10px] font-bold text-gray-600 px-2 py-1">📋 استشارة</p>
+                                    </button>
+                                    <!-- مزايدة -->
+                                    <button type="button" onclick="selectPresetImage('auction')"
+                                        class="preset-img-btn border-2 border-gray-200 rounded-xl overflow-hidden hover:border-emerald-400 transition-all text-right group"
+                                        data-ar="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Auction.webp"
+                                        data-fr="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/ench%C3%A8re.webp">
+                                        <img src="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Auction.webp"
+                                             class="w-full h-16 object-cover group-hover:scale-105 transition-transform">
+                                        <p class="text-[10px] font-bold text-gray-600 px-2 py-1">🔨 مزايدة</p>
+                                    </button>
+                                    <!-- دعوة -->
+                                    <button type="button" onclick="selectPresetImage('invitation')"
+                                        class="preset-img-btn border-2 border-gray-200 rounded-xl overflow-hidden hover:border-emerald-400 transition-all text-right group"
+                                        data-ar="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Invitation.webp"
+                                        data-fr="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/Invitation-apc.webp">
+                                        <img src="https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Invitation.webp"
+                                             class="w-full h-16 object-cover group-hover:scale-105 transition-transform">
+                                        <p class="text-[10px] font-bold text-gray-600 px-2 py-1">✉️ دعوة</p>
+                                    </button>
+                                </div>
+                                <!-- معاينة الصورة المختارة -->
+                                <div id="news-preset-preview" class="hidden mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded-xl">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-[10px] font-bold text-emerald-700">✅ تم اختيار الصورة</span>
+                                        <button type="button" onclick="clearPresetImage()" class="text-[10px] text-red-500 font-bold">✕ إلغاء</button>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-1">
+                                        <div><p class="text-[9px] text-gray-400 mb-0.5">🇩🇿 عربية</p><img id="news-preset-ar-thumb" src="" class="w-full h-10 object-cover rounded-lg"></div>
+                                        <div><p class="text-[9px] text-gray-400 mb-0.5">🇫🇷 فرنسية</p><img id="news-preset-fr-thumb" src="" class="w-full h-10 object-cover rounded-lg"></div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center gap-2 mt-3 mb-1">
+                                    <div class="flex-1 h-px bg-gray-200"></div>
+                                    <span class="text-[10px] text-gray-400 font-semibold">أو صورة مخصصة</span>
+                                    <div class="flex-1 h-px bg-gray-200"></div>
+                                </div>
+                            </div>
+
+                            <!-- widget رفع الصورة المخصصة -->
+                            <div id="news-featured-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('news-featured-input')">
+                                <div id="news-featured-placeholder" class="flex flex-col items-center gap-1 py-3">
+                                    <span class="iconify text-3xl text-gray-200" data-icon="lucide:image-plus"></span>
+                                    <span class="text-xs text-gray-400 font-semibold">اضغط لرفع صورة مخصصة</span>
+                                    <span class="text-[10px] text-gray-300">JPG, PNG, WEBP — max 25MB</span>
+                                </div>
+                                <div id="news-featured-preview" class="hidden">
+                                    <img id="news-featured-img" src="" class="w-full h-28 object-cover rounded-lg mb-2">
+                                    <div class="flex items-center justify-between">
+                                        <span id="news-featured-name" class="text-[10px] text-gray-500 truncate flex-1 ml-1"></span>
+                                        <button onclick="event.stopPropagation();clearWidget('news-featured','news-image','news-image-url-manual')" class="text-[10px] text-red-500 font-bold flex-shrink-0">✕ حذف</button>
+                                    </div>
+                                </div>
+                                <div id="news-featured-uploading" class="hidden flex flex-col items-center gap-1 py-3">
+                                    <span class="iconify text-3xl text-indigo-400 spin" data-icon="lucide:loader-2"></span>
+                                    <span class="text-xs text-indigo-500 font-semibold">جاري الرفع...</span>
+                                </div>
+                            </div>
+                            <input type="file" id="news-featured-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'news-featured','news-image','news')">
+                            <input type="hidden" id="news-image" value="">
+                            <input id="news-image-url-manual" type="url" placeholder="أو الصق رابطاً مباشرةً..." class="mt-2 text-xs" oninput="document.getElementById('news-image').value=this.value">
+                        </div>
+
+                        <!-- 🇫🇷 الصورة المميزة الفرنسية — للإعلانات الرسمية فقط -->
+                        <div id="news-image-fr-wrap" class="hidden border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-2 block">🇫🇷 Bannière — Français <span class="text-gray-400 font-normal">(صورة مميزة للنسخة الفرنسية)</span></label>
+                            <div id="news-featured-fr-widget" class="upload-widget p-3 cursor-pointer border-blue-200" onclick="triggerUpload('news-featured-fr-input')">
+                                <div id="news-featured-fr-placeholder" class="flex flex-col items-center gap-1 py-3">
+                                    <span class="iconify text-3xl text-blue-200" data-icon="lucide:image-plus"></span>
+                                    <span class="text-xs text-blue-400 font-semibold">Cliquez pour uploader</span>
+                                    <span class="text-[10px] text-blue-300">JPG, PNG, WEBP — max 25MB</span>
+                                </div>
+                                <div id="news-featured-fr-preview" class="hidden">
+                                    <img id="news-featured-fr-img" src="" class="w-full h-28 object-cover rounded-lg mb-2">
+                                    <div class="flex items-center justify-between">
+                                        <span id="news-featured-fr-name" class="text-[10px] text-gray-500 truncate flex-1 ml-1"></span>
+                                        <button onclick="event.stopPropagation();clearWidget('news-featured-fr','news-image-fr','news-image-fr-url-manual')" class="text-[10px] text-red-500 font-bold flex-shrink-0">✕ حذف</button>
+                                    </div>
+                                </div>
+                                <div id="news-featured-fr-uploading" class="hidden flex flex-col items-center gap-1 py-3">
+                                    <span class="iconify text-3xl text-blue-400 spin" data-icon="lucide:loader-2"></span>
+                                    <span class="text-xs text-blue-500 font-semibold">جاري الرفع...</span>
+                                </div>
+                            </div>
+                            <input type="file" id="news-featured-fr-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'news-featured-fr','news-image-fr','news-fr')">
+                            <input type="hidden" id="news-image-fr" value="">
+                            <input id="news-image-fr-url-manual" type="url" placeholder="أو الصق رابط الصورة الفرنسية..." class="mt-2 text-xs border-blue-200" oninput="document.getElementById('news-image-fr').value=this.value">
+                        </div>
+
+                        <!-- ألبوم صور -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-2 block flex items-center gap-1">
+                                <span class="iconify text-emerald-400" data-icon="lucide:layout-grid"></span>
+                                ألبوم صور المقال <span class="text-gray-400 font-normal">(اختياري)</span>
+                            </label>
+                            <div id="news-album-grid" class="grid grid-cols-3 gap-2 mb-2 empty:hidden"></div>
+                            <button type="button" onclick="triggerUpload('news-album-input')" id="news-album-btn"
+                                    class="w-full py-2 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition-all flex items-center justify-center gap-1 font-bold">
+                                <span class="iconify" data-icon="lucide:plus-circle"></span> إضافة صورة للألبوم
+                            </button>
+                            <input type="file" id="news-album-input" accept="image/*" class="hidden" onchange="handleAlbum(this,'news')">
+                            <input type="hidden" id="news-album-urls" value="[]">
+                        </div>
+
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">التاريخ</label><input id="news-date" type="date"></div>
+                        <div class="flex items-center gap-2 bg-emerald-50 rounded-xl px-4 py-3 border border-emerald-200">
+                            <input id="news-pinned" type="checkbox" class="w-4 h-4 accent-emerald-600">
+                            <label for="news-pinned" class="text-xs font-bold text-emerald-700 cursor-pointer">📌 تثبيت المنشور</label>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="saveNews()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">
+                                <span class="iconify inline-block ml-1" data-icon="lucide:save"></span><span id="news-save-btn">حفظ</span>
+                            </button>
+                            <button onclick="cancelNewsEdit()" id="news-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2"><div id="news-list" class="space-y-3"></div></div>
+            </div>
+        </div>
+
+        <!-- SERVICES -->
+        <div id="section-services" class="content-section hidden fade-in">
+            <!-- زر فتح المحرر -->
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('services')" id="btn-open-services"
+                        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة خدمة / تطبيق
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="form-panel-services" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="iconify text-emerald-500" data-icon="lucide:plus-circle"></span>
+                        <span id="services-form-title">إضافة خدمة / تطبيق</span>
+                    </h3>
+                    <input type="hidden" id="services-edit-id" value="">
+                    <div class="space-y-3">
+
+                        <!-- نوع: خدمة أو تطبيق -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">نوع العنصر</label>
+                            <div class="flex gap-2">
+                                <label class="flex-1 flex items-center gap-2 cursor-pointer bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5 has-[:checked]:bg-emerald-600 has-[:checked]:text-white has-[:checked]:border-emerald-600 transition-all">
+                                    <input type="radio" name="svc-type" id="svc-type-service" value="service" checked class="accent-emerald-600">
+                                    <span class="text-xs font-bold">🏛️ خدمة</span>
+                                </label>
+                                <label class="flex-1 flex items-center gap-2 cursor-pointer bg-blue-50 border border-blue-200 rounded-xl px-3 py-2.5 has-[:checked]:bg-blue-600 has-[:checked]:text-white has-[:checked]:border-blue-600 transition-all">
+                                    <input type="radio" name="svc-type" id="svc-type-app" value="app" class="accent-blue-600">
+                                    <span class="text-xs font-bold">📱 تطبيق</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- اسم الخدمة/التطبيق -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">اسم الخدمة / التطبيق (عربي)</label>
+                            <input id="services-name" type="text" placeholder="مثال: جواز السفر البيومتري">
+                        </div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Nom — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="services-name-fr" type="text" placeholder="Ex: Passeport biométrique" class="border-blue-200">
+                        </div>
+
+                        <!-- الأيقونة -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">الأيقونة <span class="font-normal text-gray-400">(Lucide icon name)</span></label>
+                            <input id="services-icon" type="text" value="file-text" placeholder="file-text">
+                        </div>
+
+                        <!-- صورة مميزة -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">🖼️ الصورة المميزة <span class="font-normal text-gray-400">(اختياري)</span></label>
+                            <div id="svc-img-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('svc-img-input')">
+                                <div id="svc-img-placeholder" class="flex flex-col items-center gap-1 py-2">
+                                    <span class="iconify text-2xl text-gray-200" data-icon="lucide:image-plus"></span>
+                                    <span class="text-xs text-gray-400 font-semibold">اضغط لرفع صورة</span>
+                                </div>
+                                <div id="svc-img-preview" class="hidden">
+                                    <img id="svc-img-img" src="" class="w-full h-24 object-cover rounded-lg mb-1">
+                                    <button onclick="event.stopPropagation();clearSvcImage()" class="text-[10px] text-red-500 font-bold">✕ حذف</button>
+                                </div>
+                                <div id="svc-img-uploading" class="hidden flex-col items-center gap-1 py-2">
+                                    <span class="iconify text-2xl text-indigo-400 spin" data-icon="lucide:loader-2"></span>
+                                    <span class="text-xs text-indigo-500">جاري الرفع...</span>
+                                </div>
+                            </div>
+                            <input type="file" id="svc-img-input" accept="image/*" class="hidden" onchange="handleSvcImageUpload(this)">
+                            <input type="hidden" id="services-image" value="">
+                            <input id="services-image-manual" type="url" placeholder="أو الصق رابطاً مباشرةً..." class="mt-1 text-xs"
+                                   oninput="document.getElementById('services-image').value=this.value;if(this.value){document.getElementById('svc-img-img').src=this.value;document.getElementById('svc-img-preview').classList.remove('hidden');document.getElementById('svc-img-placeholder').classList.add('hidden');}">
+                        </div>
+
+                        <!-- رابط مباشر -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">🔗 الرابط المباشر <span class="font-normal text-gray-400">(اختياري)</span></label>
+                            <input id="services-link" type="url" placeholder="https://...">
+                            <p class="text-[10px] text-gray-400 mt-0.5">للخدمة: رابط الموقع الرسمي — للتطبيق: رابط المتجر</p>
+                        </div>
+
+                        <!-- التعريف المختصر -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">📝 التعريف المختصر (عربي)</label>
+                            <textarea id="services-desc" rows="2" placeholder="وصف مختصر للخدمة أو التطبيق..."></textarea>
+                        </div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Description — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="services-desc-fr" rows="2" placeholder="Description courte du service en français..." class="border-blue-200"></textarea>
+                        </div>
+
+                        <!-- الوثائق المطلوبة -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">📋 الوثائق المطلوبة <span class="font-normal text-gray-400">(يفصلها |)</span></label>
+                            <textarea id="services-docs" rows="3" placeholder="وثيقة 1|وثيقة 2|وثيقة 3"></textarea>
+                        </div>
+
+                        <!-- روابط الاستمارات (متعددة) -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-2 block flex items-center gap-1">
+                                <span class="iconify text-indigo-400" data-icon="lucide:clipboard-list"></span>
+                                روابط الاستمارات <span class="font-normal text-gray-400">(اختياري — متعددة)</span>
+                            </label>
+                            <div id="svc-forms-list" class="space-y-2 mb-2"></div>
+                            <button type="button" onclick="addSvcFormLink()" class="w-full py-2 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-1 font-bold">
+                                <span class="iconify" data-icon="lucide:plus-circle"></span> إضافة رابط استمارة
+                            </button>
+                        </div>
+
+                        <!-- اللون -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">🎨 اللون المميز</label>
+                            <div class="grid grid-cols-3 gap-2" id="svc-color-picker">
+                                <label class="cursor-pointer"><input type="radio" name="svc-color" value="blue" checked class="sr-only"><div class="h-8 rounded-xl bg-gradient-to-l from-blue-600 to-blue-800 flex items-center justify-center svc-color-opt border-2 border-transparent" data-color="blue"><span class="iconify text-white text-sm hidden" data-icon="lucide:check"></span></div><p class="text-[10px] text-center text-gray-500 mt-0.5">أزرق</p></label>
+                                <label class="cursor-pointer"><input type="radio" name="svc-color" value="emerald" class="sr-only"><div class="h-8 rounded-xl bg-gradient-to-l from-emerald-600 to-emerald-800 flex items-center justify-center svc-color-opt border-2 border-transparent" data-color="emerald"><span class="iconify text-white text-sm hidden" data-icon="lucide:check"></span></div><p class="text-[10px] text-center text-gray-500 mt-0.5">أخضر</p></label>
+                                <label class="cursor-pointer"><input type="radio" name="svc-color" value="amber" class="sr-only"><div class="h-8 rounded-xl bg-gradient-to-l from-amber-600 to-amber-800 flex items-center justify-center svc-color-opt border-2 border-transparent" data-color="amber"><span class="iconify text-white text-sm hidden" data-icon="lucide:check"></span></div><p class="text-[10px] text-center text-gray-500 mt-0.5">ذهبي</p></label>
+                                <label class="cursor-pointer"><input type="radio" name="svc-color" value="purple" class="sr-only"><div class="h-8 rounded-xl bg-gradient-to-l from-purple-600 to-purple-800 flex items-center justify-center svc-color-opt border-2 border-transparent" data-color="purple"><span class="iconify text-white text-sm hidden" data-icon="lucide:check"></span></div><p class="text-[10px] text-center text-gray-500 mt-0.5">بنفسجي</p></label>
+                                <label class="cursor-pointer"><input type="radio" name="svc-color" value="teal" class="sr-only"><div class="h-8 rounded-xl bg-gradient-to-l from-teal-600 to-teal-800 flex items-center justify-center svc-color-opt border-2 border-transparent" data-color="teal"><span class="iconify text-white text-sm hidden" data-icon="lucide:check"></span></div><p class="text-[10px] text-center text-gray-500 mt-0.5">تركوازي</p></label>
+                                <label class="cursor-pointer"><input type="radio" name="svc-color" value="red" class="sr-only"><div class="h-8 rounded-xl bg-gradient-to-l from-red-600 to-red-800 flex items-center justify-center svc-color-opt border-2 border-transparent" data-color="red"><span class="iconify text-white text-sm hidden" data-icon="lucide:check"></span></div><p class="text-[10px] text-center text-gray-500 mt-0.5">أحمر</p></label>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-2 pt-1">
+                            <button onclick="saveService()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">💾 حفظ</button>
+                            <button onclick="cancelServiceEdit()" id="services-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2"><div id="services-list" class="space-y-3"></div></div>
+            </div>
+        </div>
+
+        <!-- ARCHIVES -->
+        <div id="section-archives" class="content-section hidden fade-in">
+            <!-- زر فتح المحرر -->
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('archives')" id="btn-open-archives"
+                        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة صورة أرشيفية
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="form-panel-archives" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2"><span class="iconify text-emerald-500" data-icon="lucide:plus-circle"></span><span id="archives-form-title">إضافة صورة أرشيفية</span></h3>
+                    <input type="hidden" id="archives-edit-id" value="">
+                    <!-- تلميح التصنيف -->
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 text-xs text-amber-700 leading-relaxed">
+                        <span class="font-extrabold">📌 طريقة التصنيف:</span><br>
+                        • <strong>مقارنة الأمس بالحاضر:</strong> ارفع صورة قديمة + صورة حديثة<br>
+                        • <strong>صور تاريخية:</strong> ارفع الصورة في حقل "صورة حديثة" فقط واترك "صورة قديمة" فارغاً
+                    </div>
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">العنوان</label><input id="archives-title" type="text" placeholder="مثال: المدخل الرئيسي"></div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Titre — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="archives-title-fr" type="text" placeholder="Ex: Entrée principale" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الوصف</label><textarea id="archives-desc" placeholder="وصف مختصر..." rows="2"></textarea></div>
+                        <!-- 🇫🇷 desc -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Description — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="archives-desc-fr" placeholder="Description en français..." rows="2" class="border-blue-200"></textarea>
+                        </div>
+                        <!-- صورة قديمة -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">📷 الصورة القديمة</label>
+                            <div id="archives-old-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('archives-old-input')">
+                                <div id="archives-old-placeholder" class="flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-gray-200" data-icon="lucide:image"></span><span class="text-xs text-gray-400">رفع صورة قديمة</span></div>
+                                <div id="archives-old-preview" class="hidden"><img id="archives-old-img" src="" class="w-full h-20 object-cover rounded-lg mb-1"><button onclick="event.stopPropagation();clearWidget('archives-old','archives-old','archives-old-url-manual')" class="text-[10px] text-red-500 font-bold">✕ حذف</button></div>
+                                <div id="archives-old-uploading" class="hidden flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-indigo-400 spin" data-icon="lucide:loader-2"></span><span class="text-xs text-indigo-500">جاري الرفع...</span></div>
+                            </div>
+                            <input type="file" id="archives-old-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'archives-old','archives-old','archives')">
+                            <input type="hidden" id="archives-old" value="">
+                            <input id="archives-old-url-manual" type="url" placeholder="أو الصق رابطاً..." class="mt-1 text-xs" oninput="document.getElementById('archives-old').value=this.value">
+                        </div>
+                        <!-- صورة حديثة -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">🆕 الصورة الحديثة</label>
+                            <div id="archives-new-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('archives-new-input')">
+                                <div id="archives-new-placeholder" class="flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-gray-200" data-icon="lucide:image"></span><span class="text-xs text-gray-400">رفع صورة حديثة</span></div>
+                                <div id="archives-new-preview" class="hidden"><img id="archives-new-img" src="" class="w-full h-20 object-cover rounded-lg mb-1"><button onclick="event.stopPropagation();clearWidget('archives-new','archives-new','archives-new-url-manual')" class="text-[10px] text-red-500 font-bold">✕ حذف</button></div>
+                                <div id="archives-new-uploading" class="hidden flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-indigo-400 spin" data-icon="lucide:loader-2"></span><span class="text-xs text-indigo-500">جاري الرفع...</span></div>
+                            </div>
+                            <input type="file" id="archives-new-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'archives-new','archives-new','archives')">
+                            <input type="hidden" id="archives-new" value="">
+                            <input id="archives-new-url-manual" type="url" placeholder="أو الصق رابطاً..." class="mt-1 text-xs" oninput="document.getElementById('archives-new').value=this.value">
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="saveArchive()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">💾 حفظ</button>
+                            <button onclick="cancelArchiveEdit()" id="archives-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2"><div id="archives-list" class="space-y-3"></div></div>
+            </div>
+        </div>
+
+        <!-- TOURISM -->
+        <div id="section-tourism" class="content-section hidden fade-in">
+            <!-- زر فتح المحرر -->
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('tourism')" id="btn-open-tourism"
+                        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة معلم سياحي
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="form-panel-tourism" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2"><span class="iconify text-emerald-500" data-icon="lucide:plus-circle"></span><span id="tourism-form-title">إضافة معلم سياحي</span></h3>
+                    <input type="hidden" id="tourism-edit-id" value="">
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الاسم (عربي)</label><input id="tourism-name" type="text" placeholder="باي ويست"></div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Nom — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="tourism-name-fr" type="text" placeholder="Baie Ouest..." class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">العنوان الفرعي (عربي)</label><input id="tourism-subtitle" type="text" placeholder="Baie Ouest"></div>
+                        <!-- 🇫🇷 subtitle -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Sous-titre — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="tourism-subtitle-fr" type="text" placeholder="Sous-titre en français..." class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الوصف (عربي)</label><textarea id="tourism-desc" rows="3" placeholder="وصف المعلم..."></textarea></div>
+                        <!-- 🇫🇷 desc -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Description — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="tourism-desc-fr" rows="3" placeholder="Description du site touristique en français..." class="border-blue-200"></textarea>
+                        </div>
+                        <!-- صورة المعلم -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">🏖️ صورة المعلم</label>
+                            <div id="tourism-img-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('tourism-img-input')">
+                                <div id="tourism-img-placeholder" class="flex flex-col items-center gap-1 py-3"><span class="iconify text-3xl text-gray-200" data-icon="lucide:image-plus"></span><span class="text-xs text-gray-400 font-semibold">رفع صورة المعلم</span></div>
+                                <div id="tourism-img-preview" class="hidden"><img id="tourism-img-img" src="" class="w-full h-28 object-cover rounded-lg mb-1"><button onclick="event.stopPropagation();clearWidget('tourism-img','tourism-image','tourism-image-manual')" class="text-[10px] text-red-500 font-bold">✕ حذف</button></div>
+                                <div id="tourism-img-uploading" class="hidden flex flex-col items-center gap-1 py-3"><span class="iconify text-3xl text-indigo-400 spin" data-icon="lucide:loader-2"></span><span class="text-xs text-indigo-500">جاري الرفع...</span></div>
+                            </div>
+                            <input type="file" id="tourism-img-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'tourism-img','tourism-image','tourism')">
+                            <input type="hidden" id="tourism-image" value="">
+                            <input id="tourism-image-manual" type="url" placeholder="أو الصق رابطاً..." class="mt-2 text-xs" oninput="document.getElementById('tourism-image').value=this.value">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">التقييم</label><input id="tourism-rating" type="text" value="4.5"></div>
+                        <!-- إحداثيات الخريطة -->
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 space-y-2">
+                            <p class="text-xs font-bold text-emerald-700 flex items-center gap-1"><span class="iconify" data-icon="lucide:map-pin"></span> إحداثيات الخريطة</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="text-[10px] text-gray-500 mb-0.5 block">خط العرض (Lat)</label><input id="tourism-lat" type="number" step="any" placeholder="37.085" class="text-xs"></div>
+                                <div><label class="text-[10px] text-gray-500 mb-0.5 block">خط الطول (Lng)</label><input id="tourism-lng" type="number" step="any" placeholder="7.255" class="text-xs"></div>
+                            </div>
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">معلومات المسافة</label><input id="tourism-distance" type="text" placeholder="10 دقائق"></div>
+                        <!-- 🇫🇷 distance -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Distance — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="tourism-distance-fr" type="text" placeholder="Ex: 10 minutes" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">نص الشارة</label><input id="tourism-badge" type="text" placeholder="الأكثر زيارة"></div>
+                        <!-- 🇫🇷 badge -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Badge — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="tourism-badge-fr" type="text" placeholder="Ex: Le plus visité" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">لون الشارة</label><select id="tourism-badge-color"><option value="emerald">أخضر</option><option value="amber">ذهبي</option><option value="purple">بنفسجي</option><option value="teal">تركوازي</option></select></div>
+                        <div class="flex gap-2">
+                            <button onclick="saveTourism()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">💾 حفظ</button>
+                            <button onclick="cancelTourismEdit()" id="tourism-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2"><div id="tourism-list" class="space-y-3"></div></div>
+            </div>
+        </div>
+
+        <!-- MAYORS -->
+        <div id="section-mayors" class="content-section hidden fade-in">
+            <!-- زر فتح المحرر -->
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('mayors')" id="btn-open-mayors"
+                        class="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة رئيس
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="form-panel-mayors" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2"><span class="iconify text-emerald-500" data-icon="lucide:plus-circle"></span><span id="mayors-form-title">إضافة رئيس</span></h3>
+                    <input type="hidden" id="mayors-edit-id" value="">
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الاسم الكامل</label><input id="mayors-name" type="text" placeholder="السيد ..."></div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Nom complet — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="mayors-name-fr" type="text" placeholder="Ex: M. Mohamed Benali" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">فترة الولاية</label><input id="mayors-period" type="text" placeholder="2021 — الآن"></div>
+                        <!-- 🇫🇷 period -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Mandat — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="mayors-period-fr" type="text" placeholder="Ex: 2021 — Présent" class="border-blue-200">
+                        </div>
+                        <!-- صورة الرئيس -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">👤 صورة الرئيس</label>
+                            <div id="mayors-img-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('mayors-img-input')">
+                                <div id="mayors-img-placeholder" class="flex flex-col items-center gap-1 py-3"><span class="iconify text-3xl text-gray-200" data-icon="lucide:user-circle"></span><span class="text-xs text-gray-400 font-semibold">رفع صورة الرئيس</span></div>
+                                <div id="mayors-img-preview" class="hidden"><img id="mayors-img-img" src="" class="w-full h-28 object-cover rounded-lg mb-1"><button onclick="event.stopPropagation();clearWidget('mayors-img','mayors-image','mayors-image-manual')" class="text-[10px] text-red-500 font-bold">✕ حذف</button></div>
+                                <div id="mayors-img-uploading" class="hidden flex flex-col items-center gap-1 py-3"><span class="iconify text-3xl text-indigo-400 spin" data-icon="lucide:loader-2"></span><span class="text-xs text-indigo-500">جاري الرفع...</span></div>
+                            </div>
+                            <input type="file" id="mayors-img-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'mayors-img','mayors-image','mayors')">
+                            <input type="hidden" id="mayors-image" value="">
+                            <input id="mayors-image-manual" type="url" placeholder="أو الصق رابطاً..." class="mt-2 text-xs" oninput="document.getElementById('mayors-image').value=this.value">
+                        </div>
+                        <!-- بادج المندوبية التنفيذية -->
+                        <div class="border-r-2 border-amber-400 pr-3 bg-amber-50 rounded-lg py-2 px-2">
+                            <label class="flex items-center gap-2 cursor-pointer select-none">
+                                <input type="checkbox" id="mayors-is-dec" class="w-4 h-4 accent-amber-500 rounded">
+                                <span class="text-xs font-bold text-amber-700">🏅 رئيس المندوبية التنفيذية <span class="text-gray-400 font-normal">(DEC)</span></span>
+                            </label>
+                            <p class="text-[10px] text-amber-600 mt-1 mr-6">سيظهر بادج خاص تحت الولاية في صفحة الرؤساء السابقين</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="saveMayor()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">💾 حفظ</button>
+                            <button onclick="cancelMayorEdit()" id="mayors-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2"><div id="mayors-list" class="space-y-3"></div></div>
+            </div>
+        </div>
+
+        <!-- ===== BEACHES ===== -->
+        <div id="section-beaches" class="content-section hidden fade-in">
+            <!-- زر فتح المحرر -->
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('beaches')" id="btn-open-beaches"
+                        class="inline-flex items-center gap-2 bg-sky-600 hover:bg-sky-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة شاطئ
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- نموذج إضافة -->
+                <div id="form-panel-beaches" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="iconify text-sky-500" data-icon="lucide:plus-circle"></span>
+                        <span id="beaches-form-title">إضافة شاطئ</span>
+                    </h3>
+                    <input type="hidden" id="beaches-edit-id" value="">
+                    <div class="space-y-3">
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">اسم الشاطئ (عربي)</label><input id="beaches-name" type="text" placeholder="مثال: شاطئ واد الغنم"></div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Nom de la plage — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="beaches-name-fr" type="text" placeholder="Ex: Plage Oued Ghnem" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الوصف (عربي)</label><textarea id="beaches-desc" rows="3" placeholder="وصف الشاطئ..."></textarea></div>
+                        <!-- 🇫🇷 desc -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Description — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="beaches-desc-fr" rows="3" placeholder="Description de la plage en français..." class="border-blue-200"></textarea>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">🏖️ الصورة الرئيسية</label>
+                            <div id="beaches-img-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('beaches-img-input')">
+                                <div id="beaches-img-placeholder" class="flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-gray-200" data-icon="lucide:image-plus"></span><span class="text-xs text-gray-400">رفع صورة الشاطئ</span></div>
+                                <div id="beaches-img-preview" class="hidden"><img id="beaches-img-img" src="" class="w-full h-24 object-cover rounded-lg mb-1"><button onclick="event.stopPropagation();clearWidget('beaches-img','beaches-image','beaches-image-manual')" class="text-[10px] text-red-500 font-bold">✕ حذف</button></div>
+                                <div id="beaches-img-uploading" class="hidden flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-indigo-400 spin" data-icon="lucide:loader-2"></span><span class="text-xs text-indigo-500">جاري الرفع...</span></div>
+                            </div>
+                            <input type="file" id="beaches-img-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'beaches-img','beaches-image','beaches')">
+                            <input type="hidden" id="beaches-image" value="">
+                            <input id="beaches-image-manual" type="url" placeholder="أو الصق رابطاً..." class="mt-1 text-xs" oninput="document.getElementById('beaches-image').value=this.value">
+                        </div>
+                        <div class="flex items-center gap-2 bg-sky-50 rounded-xl px-3 py-2.5 border border-sky-200">
+                            <input id="beaches-supervised" type="checkbox" checked class="w-4 h-4 accent-sky-600">
+                            <label for="beaches-supervised" class="text-xs font-bold text-sky-700 cursor-pointer">🛡️ شاطئ مراقب رسمياً</label>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">نوع الشاطئ</label>
+                            <select id="beaches-season" class="text-sm">
+                                <option value="رملي">🏖️ رملي</option>
+                                <option value="صخري">🪨 صخري</option>
+                            </select>
+                        </div>
+                        <!-- إحداثيات الخريطة -->
+                        <div class="bg-sky-50 border border-sky-200 rounded-xl p-3 space-y-2">
+                            <p class="text-xs font-bold text-sky-700 flex items-center gap-1"><span class="iconify" data-icon="lucide:map-pin"></span> إحداثيات الخريطة</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="text-[10px] text-gray-500 mb-0.5 block">خط العرض (Lat)</label><input id="beaches-lat" type="number" step="any" placeholder="37.085" class="text-xs"></div>
+                                <div><label class="text-[10px] text-gray-500 mb-0.5 block">خط الطول (Lng)</label><input id="beaches-lng" type="number" step="any" placeholder="7.255" class="text-xs"></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="saveBeach()" class="flex-1 bg-sky-600 hover:bg-sky-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">💾 حفظ</button>
+                            <button onclick="cancelBeachEdit()" id="beaches-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- قائمة الشواطئ -->
+                <div class="lg:col-span-2">
+                    <div id="beaches-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FACILITIES -->
+        <div id="section-facilities" class="content-section hidden fade-in">
+            <div class="mb-4 flex justify-end">
+                <button onclick="toggleFormPanel('facilities')" id="btn-open-facilities"
+                        class="inline-flex items-center gap-2 bg-slate-600 hover:bg-slate-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md">
+                    <span class="iconify text-lg" data-icon="lucide:plus-circle"></span>
+                    إضافة مرفق
+                </button>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div id="form-panel-facilities" class="form-panel">
+                    <h3 class="font-extrabold text-gray-800 mb-4 flex items-center gap-2">
+                        <span class="iconify text-slate-500" data-icon="lucide:building-2"></span>
+                        <span id="facilities-form-title">إضافة مرفق</span>
+                    </h3>
+                    <input type="hidden" id="facilities-edit-id" value="">
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">التصنيف</label>
+                            <select id="facilities-category" class="w-full">
+                                <option value="religious">🕌 دينية</option>
+                                <option value="cultural">🎭 ثقافية</option>
+                                <option value="sports">⚽ رياضية</option>
+                                <option value="public">🏢 خدمات عمومية</option>
+                                <option value="training">📚 تكوين</option>
+                                <option value="assoc">🤝 جمعيات</option>
+                                <option value="branches">🏛️ فروع إدارية</option>
+                                <option value="education">🎓 التعليم والتكوين</option>
+                                <option value="health">🏥 مرافق صحية</option>
+                                <option value="public_bodies">🏢 الهيئات العمومية</option>
+                            </select>
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">اسم المرفق</label><input id="facilities-name" type="text" placeholder="مثال: مسجد الرحمة — شطايبي"></div>
+                        <!-- 🇫🇷 -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Nom du lieu — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="facilities-name-fr" type="text" placeholder="Ex: Mosquée Errahma" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">نوع المرفق</label><input id="facilities-subtype" type="text" placeholder="مثال: مسجد جامع / ملعب كرة قدم"></div>
+                        <!-- 🇫🇷 subtype -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Type — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="facilities-subtype-fr" type="text" placeholder="Ex: Grande mosquée / Terrain de football" class="border-blue-200">
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الوصف</label><textarea id="facilities-desc" rows="3" placeholder="وصف مختصر للمرفق..."></textarea></div>
+                        <!-- 🇫🇷 desc -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Description — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="facilities-desc-fr" rows="3" placeholder="Description du lieu en français..." class="border-blue-200"></textarea>
+                        </div>
+                        <div><label class="text-xs font-bold text-gray-500 mb-1 block">الكلمات الدلالية (مفصولة بفاصلة)</label><input id="facilities-tags" type="text" placeholder="مثال: صلاة الجمعة، دروس دينية"></div>
+                        <!-- 🇫🇷 tags -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Mots-clés — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <input id="facilities-tags-fr" type="text" placeholder="Ex: prière du vendredi, cours religieux" class="border-blue-200">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">📷 الصورة الرئيسية</label>
+                            <div id="fac-img-widget" class="upload-widget p-3 cursor-pointer" onclick="triggerUpload('fac-img-input')">
+                                <div id="fac-img-placeholder" class="flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-gray-200" data-icon="lucide:image-plus"></span><span class="text-xs text-gray-400">رفع صورة</span></div>
+                                <div id="fac-img-preview" class="hidden"><img id="fac-img-img" src="" class="w-full h-24 object-cover rounded-lg mb-1"><button onclick="event.stopPropagation();clearWidget('fac-img','facilities-image','facilities-image-manual')" class="text-[10px] text-red-500 font-bold">✕ حذف</button></div>
+                                <div id="fac-img-uploading" class="hidden flex flex-col items-center gap-1 py-2"><span class="iconify text-2xl text-indigo-400 spin" data-icon="lucide:loader-2"></span><span class="text-xs text-indigo-500">جاري الرفع...</span></div>
+                            </div>
+                            <input type="file" id="fac-img-input" accept="image/*" class="hidden" onchange="handleFeatured(this,'fac-img','facilities-image','facilities')">
+                            <input type="hidden" id="facilities-image" value="">
+                            <input id="facilities-image-manual" type="url" placeholder="أو الصق رابطاً..." class="mt-1 text-xs" oninput="document.getElementById('facilities-image').value=this.value">
+                        </div>
+                        <!-- ألبوم الصور -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-2 block flex items-center gap-1"><span class="iconify" data-icon="lucide:images"></span> معرض الصور</label>
+                            <div id="fac-album-grid" class="grid grid-cols-3 gap-2 mb-2"></div>
+                            <div id="fac-album-upload" class="upload-widget p-2 cursor-pointer" onclick="triggerUpload('fac-album-input')">
+                                <div class="flex items-center justify-center gap-2 py-1"><span class="iconify text-lg text-gray-300" data-icon="lucide:plus"></span><span class="text-xs text-gray-400">إضافة صورة للمعرض</span></div>
+                            </div>
+                            <input type="file" id="fac-album-input" accept="image/*" class="hidden" onchange="handleFacAlbumUpload(this)">
+                            <input type="hidden" id="facilities-albums" value="[]">
+                        </div>
+                        <!-- إحداثيات الخريطة -->
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                            <p class="text-xs font-bold text-slate-700 flex items-center gap-1"><span class="iconify" data-icon="lucide:map-pin"></span> إحداثيات الخريطة</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div><label class="text-[10px] text-gray-500 mb-0.5 block">خط العرض (Lat)</label><input id="facilities-lat" type="number" step="any" placeholder="37.085" class="text-xs"></div>
+                                <div><label class="text-[10px] text-gray-500 mb-0.5 block">خط الطول (Lng)</label><input id="facilities-lng" type="number" step="any" placeholder="7.255" class="text-xs"></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="saveFacility()" class="flex-1 bg-slate-600 hover:bg-slate-700 text-white py-3 rounded-xl font-bold text-sm transition-colors">💾 حفظ</button>
+                            <button onclick="cancelFacilityEdit()" id="facilities-cancel-btn" class="hidden bg-gray-200 hover:bg-gray-300 text-gray-600 py-3 px-4 rounded-xl font-bold text-sm transition-colors">إلغاء</button>
+                        </div>
+                    </div>
+                </div>
+                <!-- فلترة + قائمة -->
+                <div class="lg:col-span-2">
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button onclick="filterFacAdmin('all')" id="fac-filter-all" class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-slate-600 text-white">الكل</button>
+                        <button onclick="filterFacAdmin('religious')"  id="fac-filter-religious"  class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🕌 دينية</button>
+                        <button onclick="filterFacAdmin('cultural')"   id="fac-filter-cultural"   class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🎭 ثقافية</button>
+                        <button onclick="filterFacAdmin('sports')"     id="fac-filter-sports"     class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">⚽ رياضية</button>
+                        <button onclick="filterFacAdmin('public')"     id="fac-filter-public"     class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🏢 عمومية</button>
+                        <button onclick="filterFacAdmin('training')"   id="fac-filter-training"   class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">📚 تكوين</button>
+                        <button onclick="filterFacAdmin('assoc')"      id="fac-filter-assoc"      class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🤝 جمعيات</button>
+                        <button onclick="filterFacAdmin('branches')"     id="fac-filter-branches"     class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🏛️ فروع إدارية</button>
+                        <button onclick="filterFacAdmin('education')"    id="fac-filter-education"    class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🎓 التعليم والتكوين</button>
+                        <button onclick="filterFacAdmin('health')"       id="fac-filter-health"       class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🏥 صحية</button>
+                        <button onclick="filterFacAdmin('public_bodies')" id="fac-filter-public_bodies" class="fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold bg-gray-100 text-gray-600 hover:bg-gray-200">🏢 الهيئات العمومية</button>
+                    </div>
+                    <div id="fac-admin-list" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ══ قسم مقر البلدية ══ -->
+        <div id="section-municipality" class="content-section hidden fade-in">
+            <div class="grid grid-cols-1 gap-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+                    <h3 class="font-extrabold text-gray-700 text-sm mb-4 flex items-center gap-2">
+                        <span class="iconify text-emerald-500" data-icon="lucide:landmark"></span>
+                        معلومات مقر البلدية
+                    </h3>
+                    <div class="space-y-4">
+                        <!-- وصف عربي -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-1 block">الوصف (عربي)</label>
+                            <textarea id="muni-desc-ar" rows="5" placeholder="أدخل وصفاً تعريفياً بالبلدية..."></textarea>
+                        </div>
+                        <!-- 🇫🇷 وصف فرنسي -->
+                        <div class="border-r-2 border-blue-400 pr-3 bg-blue-50 rounded-lg py-2 px-2">
+                            <label class="text-xs font-bold text-blue-600 mb-1 block">🇫🇷 Description — Français <span class="text-gray-400 font-normal">(اختياري)</span></label>
+                            <textarea id="muni-desc-fr" rows="5" placeholder="Description de la commune en français..." class="border-blue-200"></textarea>
+                        </div>
+                        <!-- ألبوم صور -->
+                        <div>
+                            <label class="text-xs font-bold text-gray-500 mb-2 block">📸 ألبوم الصور</label>
+                            <div id="muni-album-grid-admin" class="grid grid-cols-3 gap-2 mb-2"></div>
+                            <div class="upload-widget p-2 cursor-pointer" onclick="triggerUpload('muni-album-input')">
+                                <div class="flex flex-col items-center gap-1 py-2">
+                                    <span class="iconify text-2xl text-gray-200" data-icon="lucide:image-plus"></span>
+                                    <span class="text-xs text-gray-400">إضافة صورة للألبوم</span>
+                                </div>
+                            </div>
+                            <input type="file" id="muni-album-input" accept="image/*" class="hidden" onchange="handleMuniAlbumUpload(this)">
+                        </div>
+                        <!-- زر الحفظ -->
+                        <button onclick="saveMunicipality()" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                            <span class="iconify" data-icon="lucide:save"></span> حفظ المعلومات
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+let token = localStorage.getItem('admin_token') || '';
+let activeTab = 'news';
+let muniAlbumUrls = [];
+
+// ── مقر البلدية ──
+async function loadMunicipality() {
+    try {
+        const res  = await fetch('/api/municipality', { headers: authHeaders() });
+        const data = await res.json();
+        const info = data.data || {};
+        document.getElementById('muni-desc-ar').value = info.description    || '';
+        document.getElementById('muni-desc-fr').value = info.description_fr || '';
+        muniAlbumUrls = Array.isArray(info.albums) ? info.albums : [];
+        renderMuniAlbum();
+    } catch(e) { adminToast('تعذر تحميل بيانات البلدية'); }
+}
+function renderMuniAlbum() {
+    const grid = document.getElementById('muni-album-grid-admin');
+    if (!grid) return;
+    grid.innerHTML = muniAlbumUrls.length
+        ? muniAlbumUrls.map((u,i) =>
+            `<div class="relative group">
+                <img src="${u}" class="w-full h-16 object-cover rounded-lg">
+                <button onclick="muniAlbumUrls.splice(${i},1);renderMuniAlbum()" class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100">✕</button>
+            </div>`).join('')
+        : '<p class="col-span-3 text-xs text-gray-400 text-center py-2">لا توجد صور بعد</p>';
+}
+async function handleMuniAlbumUpload(input) {
+    const file = input.files[0]; if (!file) return; input.value = '';
+    try {
+        adminToast('⏳ جاري رفع الصورة...');
+        const url = await uploadFile(file, 'municipality');
+        muniAlbumUrls.push(url);
+        renderMuniAlbum();
+        loadRepoSize();
+        adminToast('✅ تمت إضافة الصورة');
+    } catch(e) { adminToast('❌ ' + e.message); }
+}
+async function saveMunicipality() {
+    const body = {
+        description:    document.getElementById('muni-desc-ar').value,
+        description_fr: document.getElementById('muni-desc-fr').value,
+        albums:         muniAlbumUrls,
+    };
+    try {
+        const res  = await fetch('/api/municipality', { method: 'PUT', headers: authHeaders(), body: JSON.stringify(body) });
+        const data = await res.json();
+        if (data.success) adminToast('✅ تم الحفظ');
+        else adminToast('❌ ' + (data.error || 'فشل الحفظ'));
+    } catch(e) { adminToast('❌ ' + e.message); }
+}
+let newsAlbumUrls = [];
+
+if (token) showDashboard(); else showLogin();
+
+function showLogin() { document.getElementById('login-screen').classList.remove('hidden'); document.getElementById('dashboard').classList.add('hidden'); }
+function showDashboard() { document.getElementById('login-screen').classList.add('hidden'); document.getElementById('dashboard').classList.remove('hidden'); loadTab(activeTab); loadRepoSize(); }
+function adminToast(msg) { const t=document.getElementById('admin-toast'); document.getElementById('admin-toast-msg').textContent=msg; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),3500); }
+async function login() {
+    const u=document.getElementById('login-username').value, p=document.getElementById('login-password').value;
+    document.getElementById('login-error').classList.add('hidden');
+    try {
+        const res=await fetch('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+        const d=await res.json();
+        if(d.success&&d.token){token=d.token;localStorage.setItem('admin_token',token);showDashboard();}
+        else document.getElementById('login-error').classList.remove('hidden');
+    } catch { document.getElementById('login-error').classList.remove('hidden'); }
+}
+function logout(){token='';localStorage.removeItem('admin_token');showLogin();}
+function authHeaders(){return{'Content-Type':'application/json','Authorization':'Bearer '+token};}
+function switchTab(tab){
+    activeTab=tab;
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('tab-'+tab).classList.add('active');
+    document.querySelectorAll('.content-section').forEach(s=>s.classList.add('hidden'));
+    const sec=document.getElementById('section-'+tab);
+    sec.classList.remove('hidden'); sec.classList.add('fade-in');
+    loadTab(tab);
+}
+function loadTab(tab){
+    const m={news:loadNews,services:loadServices,archives:loadArchives,tourism:loadTourism,mayors:loadMayors,beaches:loadBeaches_admin,facilities:loadFacilitiesAdmin,municipality:loadMunicipality};
+    if(m[tab]) m[tab]();
+}
+
+// ✅ 4/5: Mobile form toggle
+// دالة موحدة لفتح/إغلاق المحرر
+function toggleFormPanel(sec, forceOpen) {
+    const panel = document.getElementById('form-panel-' + sec);
+    const btn   = document.getElementById('btn-open-' + sec);
+    if (!panel) return;
+    const willOpen = forceOpen !== undefined ? forceOpen : !panel.classList.contains('mobile-open');
+
+    // أغلق كل الـ panels الأخرى أولاً
+    document.querySelectorAll('.form-panel.mobile-open').forEach(p => {
+        if (p !== panel) p.classList.remove('mobile-open');
+    });
+
+    panel.classList.toggle('mobile-open', willOpen);
+    document.getElementById('panel-backdrop')?.classList.toggle('active', willOpen);
+
+    if (willOpen) {
+        panel.scrollTop = 0;
+        document.body.style.overflow = 'hidden';
+        let floatBtn = panel.querySelector('.form-close-mobile');
+        if (!floatBtn) {
+            floatBtn = document.createElement('button');
+            floatBtn.className = 'form-close-mobile';
+            floatBtn.innerHTML = '<span class="iconify" data-icon="lucide:x"></span> إغلاق';
+            floatBtn.onclick = () => toggleFormPanel(sec, false);
+            panel.prepend(floatBtn);
+        }
+    } else {
+        document.body.style.overflow = '';
+    }
+
+    if (btn) {
+        btn.innerHTML = willOpen
+            ? '<span class="iconify text-lg" data-icon="lucide:x"></span> إغلاق'
+            : `<span class="iconify text-lg" data-icon="lucide:plus-circle"></span> ${btn.dataset.label || 'إضافة'}`;
+    }
+}
+
+function closeAllPanels() {
+    document.querySelectorAll('.form-panel.mobile-open').forEach(p => p.classList.remove('mobile-open'));
+    document.getElementById('panel-backdrop')?.classList.remove('active');
+    document.body.style.overflow = '';
+    document.querySelectorAll('[id^="btn-open-"]').forEach(btn => {
+        const sec = btn.id.replace('btn-open-','');
+        btn.innerHTML = `<span class="iconify text-lg" data-icon="lucide:plus-circle"></span> ${btn.dataset.label || 'إضافة'}`;
+    });
+}
+// للتوافق مع الكود القديم
+function toggleNewsForm(btn){ toggleFormPanel('news'); }
+
+// ═══════════════════════════════
+// UPLOAD HELPERS
+// ═══════════════════════════════
+function triggerUpload(id){document.getElementById(id).click();}
+function readBase64(file){return new Promise((res,rej)=>{const r=new FileReader();r.onload=e=>res(e.target.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});}
+
+async function uploadFile(file, folder){
+    if(file.size>25*1024*1024) throw new Error('حجم الملف يتجاوز 25 MB');
+    const base64=await readBase64(file);
+    const resp=await fetch('/api/media',{method:'POST',headers:authHeaders(),body:JSON.stringify({filename:file.name,folder,data:base64,mime:file.type})});
+    const d=await resp.json();
+    if(!d.success) throw new Error(d.error||'فشل الرفع');
+    return d.data.cdn_url;
+}
+
+// صورة واحدة مميزة
+// widgetId: معرف div.upload-widget
+// hiddenId: معرف input[type=hidden] للرابط النهائي
+// folder: مجلد GitHub
+async function handleFeatured(input, widgetId, hiddenId, folder){
+    const file=input.files[0]; if(!file) return; input.value='';
+    const ph=document.getElementById(widgetId+'-placeholder');
+    const pre=document.getElementById(widgetId+'-preview');
+    const upl=document.getElementById(widgetId+'-uploading');
+    const w=document.getElementById(widgetId+'-widget')||document.getElementById(widgetId.replace('-img','')+'-img-widget');
+    const widget = document.getElementById(widgetId+'-widget');
+    ph.classList.add('hidden'); pre.classList.add('hidden'); upl.classList.remove('hidden');
+    if(widget) widget.classList.add('uploading');
+    try {
+        const url=await uploadFile(file,folder);
+        document.getElementById(hiddenId).value=url;
+        const imgEl=document.getElementById(widgetId+'-img');
+        const nameEl=document.getElementById(widgetId+'-name');
+        if(imgEl) imgEl.src=url;
+        if(nameEl) nameEl.textContent=file.name;
+        upl.classList.add('hidden'); pre.classList.remove('hidden');
+        if(widget){widget.classList.remove('uploading');widget.classList.add('has-image');}
+        adminToast('✅ تم رفع الصورة');
+        loadRepoSize();
+    } catch(e){
+        upl.classList.add('hidden'); ph.classList.remove('hidden');
+        if(widget) widget.classList.remove('uploading');
+        adminToast('❌ '+e.message);
+    }
+}
+
+function clearWidget(widgetId, hiddenId, manualId){
+    const ph=document.getElementById(widgetId+'-placeholder');
+    const pre=document.getElementById(widgetId+'-preview');
+    const widget=document.getElementById(widgetId+'-widget');
+    if(ph) ph.classList.remove('hidden');
+    if(pre) pre.classList.add('hidden');
+    if(widget){widget.classList.remove('has-image','uploading');}
+    document.getElementById(hiddenId).value='';
+    if(manualId) document.getElementById(manualId).value='';
+}
+
+// ألبوم صور متعددة
+async function handleAlbum(input, section){
+    const file=input.files[0]; if(!file) return; input.value='';
+    const btn=document.getElementById(section+'-album-btn');
+    const orig=btn.innerHTML;
+    btn.innerHTML='<span class="iconify spin" data-icon="lucide:loader-2"></span> جاري الرفع...';
+    btn.disabled=true;
+    try {
+        const url=await uploadFile(file,section);
+        newsAlbumUrls.push(url);
+        document.getElementById('news-album-urls').value=JSON.stringify(newsAlbumUrls);
+        renderAlbum();
+        adminToast('✅ تمت إضافة الصورة للألبوم');
+        loadRepoSize();
+    } catch(e){ adminToast('❌ '+e.message); }
+    finally{ btn.innerHTML=orig; btn.disabled=false; }
+}
+
+function renderAlbum(){
+    const grid=document.getElementById('news-album-grid');
+    if(!newsAlbumUrls.length){ grid.innerHTML=''; return; }
+    grid.innerHTML=newsAlbumUrls.map((u,i)=>`
+        <div class="album-thumb" style="position:relative;border-radius:8px;overflow:hidden;">
+            <img src="${u}" style="width:100%;height:64px;object-fit:cover;display:block;" loading="lazy" onerror="this.src='https://placehold.co/100x64/f3f4f6/ccc?text=!'">
+            <div onclick="removeAlbum(${i})" style="position:absolute;top:2px;right:2px;width:18px;height:18px;background:rgba(220,38,38,.9);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:9px;line-height:1;">✕</div>
+        </div>`).join('');
+    if(window.Iconify) Iconify.scan(grid);
+}
+function removeAlbum(i){ newsAlbumUrls.splice(i,1); document.getElementById('news-album-urls').value=JSON.stringify(newsAlbumUrls); renderAlbum(); }
+
+// ═══════════════════════════════
+// REPO SIZE
+// ═══════════════════════════════
+async function loadRepoSize(){
+    const icon=document.getElementById('repo-refresh-icon');
+    icon.classList.add('spin');
+    try {
+        const res=await fetch('/api/media?action=repo-size',{headers:authHeaders()});
+        const d=await res.json(); icon.classList.remove('spin');
+        if(!d.success) return;
+        const{size_mb,percentage,repo,warning,critical,message}=d.data;
+        document.getElementById('repo-name-badge').textContent=repo;
+        document.getElementById('repo-size-text').textContent=size_mb+' MB / '+d.data.max_mb+' MB';
+        const fill=document.getElementById('repo-bar-fill');
+        fill.style.width=Math.min(percentage,100)+'%';
+        fill.classList.remove('warn','danger');
+        if(critical) fill.classList.add('danger'); else if(warning) fill.classList.add('warn');
+        const warn=document.getElementById('repo-warning');
+        if(warning||critical){ warn.classList.remove('hidden'); document.getElementById('repo-warning-msg').textContent=message; }
+        else warn.classList.add('hidden');
+    } catch{ icon.classList.remove('spin'); }
+}
+
+
+// ═══════════════════════════════════════════════════════
+// حذف صورة من GitHub عند حذف السجل
+// image_url: رابط الصورة (cdn.jsdelivr.net)
+// ═══════════════════════════════════════════════════════
+async function deleteFromGitHub(image_url) {
+    if (!image_url || !image_url.includes('jsdelivr.net')) return;
+    try {
+        await fetch('/api/github-delete', {
+            method: 'DELETE',
+            headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image_url })
+        });
+    } catch(e) {
+        console.warn('تعذر حذف الصورة من GitHub:', e.message);
+    }
+}
+
+// حذف مصفوفة من الصور من GitHub دفعة واحدة
+async function deleteMultipleFromGitHub(urls = []) {
+    const validUrls = urls.filter(u => u && u.includes('jsdelivr.net'));
+    await Promise.allSettled(validUrls.map(u => deleteFromGitHub(u)));
+}
+
+// ═══════════════════════════════
+// NEWS
+// ═══════════════════════════════
+const catLabels={official:'📢 إعلان رسمي',activity:'🏗️ نشاط بلدي',social:'🤝 ركن المجتمع',poster:'🖼️ ملصق إعلاني'};
+const catColors={official:'red',activity:'emerald',social:'purple',poster:'indigo'};
+
+async function loadNews(){
+    try {
+        const res=await fetch('/api/news',{headers:authHeaders()});
+        const d=await res.json(); const list=document.getElementById('news-list');
+        if(!d.success||!d.data?.length){list.innerHTML='<p class="text-gray-400 text-sm text-center py-8">لا توجد أخبار بعد</p>';return;}
+        list.innerHTML=d.data.map(n=>`
+            <div class="item-card">
+                <div class="flex items-start gap-3">
+                    ${n.image_url?`<img src="${n.image_url}" class="w-16 h-14 object-cover rounded-xl flex-shrink-0">`:'<div class="w-16 h-14 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0"><span class="iconify text-gray-300 text-xl" data-icon="lucide:image-off"></span></div>'}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                            <span class="inline-block bg-${catColors[n.category]||'gray'}-100 text-${catColors[n.category]||'gray'}-700 text-[10px] font-bold px-2 py-0.5 rounded-full">${catLabels[n.category]||n.category}</span>
+                            ${n.is_pinned==1?'<span class="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-200 font-bold">📌</span>':''}
+                            <span class="text-[10px] text-gray-400">${n.date}</span>
+                        </div>
+                        <h4 class="font-bold text-gray-800 text-sm truncate mb-1">${n.title}</h4>
+                        <p class="text-xs text-gray-500 line-clamp-2">${(n.content||'').substring(0,90)}...</p>
+                    </div>
+                    <div class="flex flex-col gap-1 flex-shrink-0">
+                        <button onclick="editNews(${n.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:pencil"></span></button>
+                        <button onclick="deleteNews(${n.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:trash-2"></span></button>
+                    </div>
+                </div>
+            </div>`).join('');
+    } catch { document.getElementById('news-list').innerHTML='<p class="text-red-400 text-sm text-center py-8">تعذر التحميل</p>'; }
+}
+async function saveNews(){
+    const editId=document.getElementById('news-edit-id').value;
+    const clEl=document.getElementById('news-custom-label');
+    const body={
+        title:document.getElementById('news-title').value,
+        title_fr:document.getElementById('news-title-fr')?.value||'',
+        category:document.getElementById('news-category').value,
+        content:document.getElementById('news-content').value,
+        content_fr:document.getElementById('news-content-fr')?.value||'',
+        image_url:    document.getElementById('news-image').value,
+        image_url_fr: document.getElementById('news-image-fr')?.value||'',
+        album_urls:document.getElementById('news-album-urls').value||'[]',
+        date:document.getElementById('news-date').value||new Date().toISOString().split('T')[0],
+        is_pinned:document.getElementById('news-pinned').checked?1:0,
+        custom_label:    clEl?clEl.value:'',
+        custom_label_fr: document.getElementById('news-custom-label-fr')?.value||''
+    };
+    const isOfficial = body.category === 'official' || body.category === 'poster';
+    const isOptionalContent = body.category === 'official' || body.category === 'poster';
+    if(!isOptionalContent && !body.content){adminToast('المحتوى مطلوب');return;}
+    if(!isOfficial && !body.title){adminToast('العنوان مطلوب');return;}
+    try {
+        const res=await fetch(editId?'/api/news?id='+editId:'/api/news',{method:editId?'PUT':'POST',headers:{...authHeaders(),'Content-Type':'application/json'},body:JSON.stringify(body)});
+        const d=await res.json();
+        if(d.success){adminToast(editId?'تم تعديل الخبر':'تم إضافة الخبر');cancelNewsEdit();loadNews();}
+        else adminToast('خطأ: '+(d.error||''));
+    } catch { adminToast('تعذر الحفظ'); }
+}
+async function editNews(id){
+    try {
+        const res=await fetch('/api/news',{headers:authHeaders()});
+        const d=await res.json(); const n=d.data.find(x=>x.id==id); if(!n) return;
+        document.getElementById('news-edit-id').value=n.id;
+        document.getElementById('news-title').value=n.title;
+        if(document.getElementById('news-title-fr')) document.getElementById('news-title-fr').value=n.title_fr||'';
+        document.getElementById('news-category').value=n.category;
+        document.getElementById('news-content').value=n.content;
+        if(document.getElementById('news-content-fr')) document.getElementById('news-content-fr').value=n.content_fr||'';
+        document.getElementById('news-date').value=n.date;
+        document.getElementById('news-pinned').checked=n.is_pinned==1;
+        document.getElementById('news-image').value=n.image_url||'';
+        document.getElementById('news-image-url-manual').value=n.image_url||'';
+        // تحقق إذا كانت الصورة الحالية preset — أظهر التمييز المناسب
+        if(n.image_url && typeof PRESET_IMAGES!=='undefined'){
+            const matchKey = Object.keys(PRESET_IMAGES).find(k=>PRESET_IMAGES[k].ar===n.image_url||PRESET_IMAGES[k].fr===n.image_url);
+            if(matchKey){ selectPresetImage(matchKey); }
+        }
+        // الصورة الفرنسية — للإعلانات الرسمية فقط
+        if(document.getElementById('news-image-fr')){
+            document.getElementById('news-image-fr').value=n.image_url_fr||'';
+            document.getElementById('news-image-fr-url-manual').value=n.image_url_fr||'';
+            const frWrap=document.getElementById('news-image-fr-wrap');
+            if(frWrap) frWrap.classList.toggle('hidden', n.category!=='official');
+            if(n.image_url_fr){
+                document.getElementById('news-featured-fr-placeholder').classList.add('hidden');
+                document.getElementById('news-featured-fr-img').src=n.image_url_fr;
+                document.getElementById('news-featured-fr-name').textContent='صورة موجودة';
+                document.getElementById('news-featured-fr-preview').classList.remove('hidden');
+                document.getElementById('news-featured-fr-widget').classList.add('has-image');
+            }
+        }
+        const clEl2=document.getElementById('news-custom-label'); if(clEl2) clEl2.value=n.custom_label||'';
+        if(document.getElementById('news-custom-label-fr')) document.getElementById('news-custom-label-fr').value=n.custom_label_fr||'';
+        // تحميل ألبوم الصور الموجود
+        try{ newsAlbumUrls=JSON.parse(n.album_urls||'[]'); }catch{ newsAlbumUrls=[]; }
+        document.getElementById('news-album-urls').value=JSON.stringify(newsAlbumUrls); renderAlbum();
+        if(n.image_url){
+            document.getElementById('news-featured-placeholder').classList.add('hidden');
+            document.getElementById('news-featured-img').src=n.image_url;
+            document.getElementById('news-featured-name').textContent='صورة موجودة';
+            document.getElementById('news-featured-preview').classList.remove('hidden');
+            document.getElementById('news-featured-widget').classList.add('has-image');
+        }
+        document.getElementById('news-form-title').textContent='تعديل الخبر';
+
+    toggleFormPanel('news', true);        document.getElementById('news-save-btn').textContent='تحديث';
+        document.getElementById('news-cancel-btn').classList.remove('hidden');
+        window.scrollTo({top:0,behavior:'smooth'});
+    } catch {}
+}
+// عنوان الإعلانات الرسمية اختياري
+document.addEventListener('DOMContentLoaded', function(){
+    const catSel = document.getElementById('news-category');
+    const titleInp = document.getElementById('news-title');
+    const titleLabel = titleInp ? titleInp.closest('div')?.querySelector('label') : null;
+    const contentInp = document.getElementById('news-content');
+    const contentLabel = document.getElementById('news-content-label');
+    function updateTitleRequired(){
+        if(!titleInp) return;
+        const isPoster = catSel && catSel.value === 'poster';
+        const isOfficial = catSel && catSel.value === 'official';
+        // إظهار حقل الصورة الفرنسية للإعلانات الرسمية فقط
+        const frImgWrap = document.getElementById('news-image-fr-wrap');
+        if(frImgWrap) frImgWrap.classList.toggle('hidden', !isOfficial);
+        if(isPoster){
+            titleInp.placeholder = 'اختياري للملصقات...';
+            titleInp.removeAttribute('required');
+            if(titleLabel) titleLabel.textContent = 'العنوان (اختياري)';
+            if(contentInp) contentInp.placeholder = 'وصف اختياري للملصق...';
+            if(contentLabel) contentLabel.textContent = 'الوصف (اختياري)';
+        } else if(isOfficial){
+            titleInp.placeholder = 'اختياري للإعلانات الرسمية...';
+            titleInp.removeAttribute('required');
+            if(titleLabel) titleLabel.textContent = 'العنوان (اختياري)';
+            if(contentInp) contentInp.placeholder = 'نص الخبر الكامل...';
+            if(contentLabel) contentLabel.textContent = 'المحتوى';
+        } else {
+            titleInp.placeholder = 'عنوان الخبر...';
+            if(titleLabel) titleLabel.textContent = 'العنوان';
+            if(contentInp) contentInp.placeholder = 'نص الخبر الكامل...';
+            if(contentLabel) contentLabel.textContent = 'المحتوى';
+        }
+    }
+    if(catSel){
+        catSel.addEventListener('change', updateTitleRequired);
+        catSel.addEventListener('change', function(){
+            const isOfficial = catSel.value === 'official';
+            const wrap = document.getElementById('news-preset-wrap');
+            if (wrap) { isOfficial ? wrap.classList.remove('hidden') : wrap.classList.add('hidden'); }
+            if (!isOfficial && typeof clearPresetImage === 'function') clearPresetImage();
+            // FR image wrap
+            const frWrap = document.getElementById('news-image-fr-wrap');
+            if (frWrap) { isOfficial ? frWrap.classList.remove('hidden') : frWrap.classList.add('hidden'); }
+        });
+        updateTitleRequired();
+        // init on load
+        const initOfficial = catSel.value === 'official';
+        const pw = document.getElementById('news-preset-wrap');
+        if(pw && initOfficial) pw.classList.remove('hidden');
+        const fw = document.getElementById('news-image-fr-wrap');
+        if(fw && initOfficial) fw.classList.remove('hidden');
+    }
+});
+// ── دوال الصور الجاهزة للإعلانات ──
+const PRESET_IMAGES = {
+    announcement: { ar:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Announcement.webp', fr:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/annonce.webp' },
+    consultation:  { ar:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Consultation.webp', fr:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/consultation.webp' },
+    auction:       { ar:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Auction.webp', fr:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/ench%C3%A8re.webp' },
+    invitation:    { ar:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/APC-Invitation.webp', fr:'https://cdn.jsdelivr.net/gh/DZ-Digital/chetaibi-assets-v1@main/ui/Invitation-apc.webp' }
+};
+function selectPresetImage(key){
+    const p=PRESET_IMAGES[key]; if(!p) return;
+    document.getElementById('news-image').value=p.ar;
+    document.getElementById('news-image-url-manual').value=p.ar;
+    const frEl=document.getElementById('news-image-fr');
+    const frUrl=document.getElementById('news-image-fr-url-manual');
+    if(frEl) frEl.value=p.fr;
+    if(frUrl) frUrl.value=p.fr;
+    // معاينة
+    document.getElementById('news-preset-ar-thumb').src=p.ar;
+    document.getElementById('news-preset-fr-thumb').src=p.fr;
+    document.getElementById('news-preset-preview').classList.remove('hidden');
+    // تمييز الزر
+    document.querySelectorAll('.preset-img-btn').forEach(b=>b.classList.remove('border-emerald-500','ring-2','ring-emerald-300'));
+    const btn=document.querySelector(`.preset-img-btn[onclick="selectPresetImage('${key}')"]`);
+    if(btn) btn.classList.add('border-emerald-500','ring-2','ring-emerald-300');
+    // إخفاء preview الرفع المخصص
+    document.getElementById('news-featured-preview').classList.add('hidden');
+    document.getElementById('news-featured-placeholder').classList.remove('hidden');
+}
+function clearPresetImage(){
+    const img=document.getElementById('news-image');
+    const url=document.getElementById('news-image-url-manual');
+    // فقط نمسح إذا كانت القيمة الحالية هي صورة preset
+    const isPreset=Object.values(PRESET_IMAGES).some(p=>img&&(img.value===p.ar||img.value===p.fr));
+    if(isPreset){ if(img) img.value=''; if(url) url.value=''; }
+    const frEl=document.getElementById('news-image-fr');
+    const frUrl=document.getElementById('news-image-fr-url-manual');
+    if(frEl) frEl.value=''; if(frUrl) frUrl.value='';
+    document.getElementById('news-preset-preview').classList.add('hidden');
+    document.querySelectorAll('.preset-img-btn').forEach(b=>b.classList.remove('border-emerald-500','ring-2','ring-emerald-300'));
+}
+
+function cancelNewsEdit(){
+    document.getElementById('news-edit-id').value='';
+    document.getElementById('news-title').value='';
+    if(document.getElementById('news-title-fr')) document.getElementById('news-title-fr').value='';
+    document.getElementById('news-content').value='';
+    if(document.getElementById('news-content-fr')) document.getElementById('news-content-fr').value='';
+    document.getElementById('news-date').value='';
+    document.getElementById('news-pinned').checked=false;
+    clearWidget('news-featured','news-image','news-image-url-manual');
+    // reset الصورة الجاهزة
+    if(typeof clearPresetImage==='function') clearPresetImage();
+    const presetPrev=document.getElementById('news-preset-preview');
+    if(presetPrev) presetPrev.classList.add('hidden');
+    // reset الصورة الفرنسية
+    if(document.getElementById('news-image-fr')){
+        clearWidget('news-featured-fr','news-image-fr','news-image-fr-url-manual');
+        const frWrap=document.getElementById('news-image-fr-wrap');
+        if(frWrap) frWrap.classList.add('hidden');
+    }
+    const clEl3=document.getElementById('news-custom-label');
+    if(clEl3) clEl3.value='';
+    if(document.getElementById('news-custom-label-fr')) document.getElementById('news-custom-label-fr').value='';
+    newsAlbumUrls=[]; document.getElementById('news-album-urls').value='[]'; renderAlbum();
+    document.getElementById('news-form-title').textContent='إضافة خبر جديد'; toggleFormPanel('news', false);
+    document.getElementById('news-save-btn').textContent='حفظ';
+    document.getElementById('news-cancel-btn').classList.add('hidden');
+}
+async function deleteNews(id){
+    if(!confirm('حذف هذا الخبر؟')) return;
+    // جلب بيانات الخبر لاسترجاع الصور قبل الحذف
+    try {
+        const r = await fetch('/api/news', {headers:authHeaders()});
+        const d = await r.json();
+        const n = (d.data||[]).find(x=>x.id==id);
+        if (n) {
+            const urls = [n.image_url, n.image_url_fr].filter(Boolean);
+            // حذف صور الألبوم أيضاً
+            try { const ab=JSON.parse(n.albums||'[]'); ab.forEach(a=>urls.push(a.image_url)); } catch{}
+            await deleteMultipleFromGitHub(urls);
+        }
+    } catch(e) { console.warn('deleteNews GitHub:', e); }
+    await fetch('/api/news?id='+id,{method:'DELETE',headers:authHeaders()});
+    adminToast('تم الحذف'); loadNews();
+}
+
+// ═══════════════════════════════
+// SERVICES
+// ═══════════════════════════════
+
+// ── مساعد روابط الاستمارات ──
+let svcFormLinks = []; // [{label:'', url:''}]
+
+function renderSvcFormLinks() {
+    const container = document.getElementById('svc-forms-list');
+    if (!container) return;
+    container.innerHTML = svcFormLinks.map((f, i) => `
+        <div class="flex gap-1.5 items-center">
+            <input type="text" value="${f.label||''}" placeholder="اسم الاستمارة" class="flex-1 text-xs py-2"
+                   oninput="svcFormLinks[${i}].label=this.value">
+            <input type="url" value="${f.url||''}" placeholder="https://..." class="flex-1 text-xs py-2"
+                   oninput="svcFormLinks[${i}].url=this.value">
+            <button onclick="removeSvcFormLink(${i})" class="w-7 h-7 bg-red-50 hover:bg-red-100 text-red-500 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold">✕</button>
+        </div>`).join('');
+}
+function addSvcFormLink() { svcFormLinks.push({label:'', url:''}); renderSvcFormLinks(); }
+function removeSvcFormLink(i) { svcFormLinks.splice(i,1); renderSvcFormLinks(); }
+
+// ── مساعد color picker ──
+function initSvcColorPicker() {
+    document.querySelectorAll('#svc-color-picker input[type=radio]').forEach(radio => {
+        radio.addEventListener('change', updateSvcColorUI);
+    });
+    updateSvcColorUI();
+}
+function updateSvcColorUI() {
+    document.querySelectorAll('.svc-color-opt').forEach(div => {
+        const val = div.getAttribute('data-color');
+        const isChecked = document.querySelector(`input[name="svc-color"][value="${val}"]`)?.checked;
+        div.classList.toggle('border-white', isChecked);
+        div.classList.toggle('border-transparent', !isChecked);
+        const icon = div.querySelector('.iconify');
+        if (icon) icon.classList.toggle('hidden', !isChecked);
+    });
+}
+function getSvcColor() {
+    return document.querySelector('input[name="svc-color"]:checked')?.value || 'blue';
+}
+function setSvcColor(val) {
+    const radio = document.querySelector(`input[name="svc-color"][value="${val}"]`);
+    if (radio) { radio.checked = true; updateSvcColorUI(); }
+}
+function getSvcType() {
+    return document.querySelector('input[name="svc-type"]:checked')?.value || 'service';
+}
+function setSvcType(val) {
+    const radio = document.querySelector(`input[name="svc-type"][value="${val}"]`);
+    if (radio) { radio.checked = true; }
+}
+
+// ── رفع صورة الخدمة ──
+async function handleSvcImageUpload(input) {
+    const file = input.files[0]; if (!file) return; input.value='';
+    const widget = document.getElementById('svc-img-widget');
+    const ph = document.getElementById('svc-img-placeholder');
+    const prev = document.getElementById('svc-img-preview');
+    const uploading = document.getElementById('svc-img-uploading');
+    widget.classList.add('uploading');
+    ph.classList.add('hidden'); prev.classList.add('hidden');
+    uploading.classList.remove('hidden'); uploading.classList.add('flex');
+    adminToast('جاري الرفع...');
+    try {
+        const url = await uploadFile(file, 'services');
+        document.getElementById('services-image').value = url;
+        document.getElementById('services-image-manual').value = url;
+        document.getElementById('svc-img-img').src = url;
+        widget.classList.remove('uploading'); widget.classList.add('has-image');
+        uploading.classList.add('hidden'); uploading.classList.remove('flex');
+        prev.classList.remove('hidden');
+        adminToast('✅ تم رفع الصورة');
+    } catch(e) {
+        widget.classList.remove('uploading');
+        uploading.classList.add('hidden'); uploading.classList.remove('flex');
+        ph.classList.remove('hidden');
+        adminToast('❌ ' + e.message);
+    }
+}
+function clearSvcImage() {
+    document.getElementById('services-image').value = '';
+    document.getElementById('services-image-manual').value = '';
+    document.getElementById('svc-img-img').src = '';
+    document.getElementById('svc-img-preview').classList.add('hidden');
+    document.getElementById('svc-img-placeholder').classList.remove('hidden');
+    document.getElementById('svc-img-widget').classList.remove('has-image');
+}
+
+// ── تحميل قائمة الخدمات ──
+async function loadServices(){
+    try{
+        const res = await fetch('/api/services', {headers: authHeaders()});
+        const d   = await res.json();
+        const list = document.getElementById('services-list');
+        if (!d.success || !d.data?.length) {
+            list.innerHTML = '<p class="text-gray-400 text-sm text-center py-8">لا توجد خدمات بعد</p>';
+            return;
+        }
+        const colorDot = { blue:'bg-blue-500', emerald:'bg-emerald-500', amber:'bg-amber-500', purple:'bg-purple-500', teal:'bg-teal-500', red:'bg-red-500' };
+        list.innerHTML = d.data.map(s => {
+            const isApp = s.service_type === 'app';
+            let formLinks = [];
+            try { formLinks = JSON.parse(s.form_links || '[]'); } catch {}
+            return `
+            <div class="item-card">
+                <div class="flex items-start gap-3">
+                    ${s.image_url
+                        ? `<img src="${s.image_url}" class="w-16 h-14 object-cover rounded-xl flex-shrink-0">`
+                        : `<div class="w-16 h-14 ${colorDot[s.color]||'bg-gray-300'} rounded-xl flex items-center justify-center flex-shrink-0">
+                               <span class="iconify text-white text-2xl" data-icon="lucide:${s.icon||'file-text'}"></span>
+                           </div>`}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1 flex-wrap">
+                            <span class="inline-block ${isApp ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'} text-[10px] font-bold px-2 py-0.5 rounded-full">
+                                ${isApp ? '📱 تطبيق' : '🏛️ خدمة'}
+                            </span>
+                            <span class="w-3 h-3 rounded-full ${colorDot[s.color]||'bg-gray-300'} flex-shrink-0"></span>
+                        </div>
+                        <h4 class="font-bold text-gray-800 text-sm truncate mb-0.5">${s.service_name}</h4>
+                        ${s.description ? `<p class="text-xs text-gray-500 line-clamp-1">${s.description.substring(0,60)}</p>` : ''}
+                        ${formLinks.length ? `<p class="text-[10px] text-indigo-500 mt-0.5">📎 ${formLinks.length} استمارة</p>` : ''}
+                        ${s.direct_link ? `<p class="text-[10px] text-blue-400 mt-0.5 truncate">🔗 ${s.direct_link.substring(0,40)}...</p>` : ''}
+                    </div>
+                    <div class="flex flex-col gap-1 flex-shrink-0">
+                        <button onclick="editService(${s.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center">
+                            <span class="iconify text-sm" data-icon="lucide:pencil"></span>
+                        </button>
+                        <button onclick="deleteService(${s.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center">
+                            <span class="iconify text-sm" data-icon="lucide:trash-2"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        if (window.Iconify) Iconify.scan();
+    } catch {
+        document.getElementById('services-list').innerHTML = '<p class="text-red-400 text-sm text-center py-8">تعذر التحميل</p>';
+    }
+}
+
+async function saveService(){
+    const editId = document.getElementById('services-edit-id').value;
+    const name   = document.getElementById('services-name').value.trim();
+    if (!name) { adminToast('اسم الخدمة مطلوب', 'error'); return; }
+    // تحديث قيم الاستمارات من الـ inputs
+    document.querySelectorAll('#svc-forms-list input[type=text]').forEach((inp, i) => { if (svcFormLinks[i]) svcFormLinks[i].label = inp.value; });
+    document.querySelectorAll('#svc-forms-list input[type=url]').forEach((inp, i) => { if (svcFormLinks[i]) svcFormLinks[i].url = inp.value; });
+    const body = {
+        service_name:  name,
+        service_type:  getSvcType(),
+        description:   document.getElementById('services-desc').value,
+        description_fr: document.getElementById('services-desc-fr')?.value || '',
+        name_fr:       document.getElementById('services-name-fr')?.value || '',
+        required_docs: document.getElementById('services-docs').value,
+        direct_link:   document.getElementById('services-link').value,
+        form_links:    JSON.stringify(svcFormLinks.filter(f => f.url)),
+        image_url:     document.getElementById('services-image').value,
+        color:         getSvcColor(),
+        icon:          document.getElementById('services-icon').value || 'file-text',
+    };
+    try {
+        const url = editId ? '/api/services?id=' + editId : '/api/services';
+        const res = await fetch(url, {method: editId ? 'PUT' : 'POST', headers: {...authHeaders(), 'Content-Type':'application/json'}, body: JSON.stringify(body)});
+        const d   = await res.json();
+        if (d.success) { adminToast(editId ? '✅ تم التعديل' : '✅ تمت الإضافة'); cancelServiceEdit(); loadServices(); }
+        else adminToast('❌ ' + (d.error||''));
+    } catch { adminToast('❌ تعذر الحفظ'); }
+}
+
+async function editService(id){
+    try {
+        const res = await fetch('/api/services', {headers: authHeaders()});
+        const d   = await res.json();
+        const s   = d.data.find(x => x.id == id);
+        if (!s) return;
+        document.getElementById('services-edit-id').value = s.id;
+        document.getElementById('services-name').value    = s.service_name;
+        document.getElementById('services-icon').value    = s.icon || 'file-text';
+        document.getElementById('services-desc').value    = s.description || '';
+        if (document.getElementById('services-name-fr')) document.getElementById('services-name-fr').value = s.name_fr || '';
+        if (document.getElementById('services-desc-fr')) document.getElementById('services-desc-fr').value = s.description_fr || '';
+        document.getElementById('services-docs').value    = s.required_docs || '';
+        document.getElementById('services-link').value    = s.direct_link || '';
+        document.getElementById('services-image').value   = s.image_url || '';
+        document.getElementById('services-image-manual').value = s.image_url || '';
+        setSvcType(s.service_type || 'service');
+        setSvcColor(s.color || 'blue');
+        // صورة
+        if (s.image_url) {
+            document.getElementById('svc-img-img').src = s.image_url;
+            document.getElementById('svc-img-preview').classList.remove('hidden');
+            document.getElementById('svc-img-placeholder').classList.add('hidden');
+            document.getElementById('svc-img-widget').classList.add('has-image');
+        }
+        // استمارات
+        try { svcFormLinks = JSON.parse(s.form_links || '[]'); } catch { svcFormLinks = []; }
+        renderSvcFormLinks();
+        document.getElementById('services-form-title').textContent = 'تعديل الخدمة / التطبيق';
+        document.getElementById('services-cancel-btn').classList.remove('hidden');
+        toggleFormPanel('services', true);
+    } catch(e) { adminToast('❌ ' + e.message); }
+}
+
+function cancelServiceEdit(){
+    document.getElementById('services-edit-id').value = '';
+    document.getElementById('services-name').value    = '';
+    document.getElementById('services-icon').value    = 'file-text';
+    document.getElementById('services-desc').value    = '';
+    document.getElementById('services-docs').value    = '';
+    document.getElementById('services-link').value    = '';
+    if (document.getElementById('services-name-fr')) document.getElementById('services-name-fr').value = '';
+    if (document.getElementById('services-desc-fr')) document.getElementById('services-desc-fr').value = '';
+    setSvcType('service');
+    setSvcColor('blue');
+    clearSvcImage();
+    svcFormLinks = []; renderSvcFormLinks();
+    document.getElementById('services-form-title').textContent = 'إضافة خدمة / تطبيق';
+    document.getElementById('services-cancel-btn').classList.add('hidden');
+    toggleFormPanel('services', false);
+}
+
+async function deleteService(id){
+    if (!confirm('حذف هذا العنصر؟')) return;
+    try {
+        const r=await fetch('/api/services',{headers:authHeaders()});
+        const d=await r.json();
+        const s=(d.data||[]).find(x=>x.id==id);
+        if(s) await deleteFromGitHub(s.image_url);
+    } catch(e){ console.warn('deleteService GitHub:', e); }
+    try {
+        await fetch('/api/services?id=' + id, {method:'DELETE', headers: authHeaders()});
+        adminToast('✅ تم الحذف'); loadServices();
+    } catch { adminToast('❌ تعذر الحذف'); }
+}
+
+// تهيئة color picker عند تحميل الصفحة
+document.addEventListener('DOMContentLoaded', initSvcColorPicker);
+
+// ═══════════════════════════════
+// ARCHIVES
+// ═══════════════════════════════
+async function loadArchives(){
+    try{
+        const res=await fetch('/api/archives',{headers:authHeaders()});const d=await res.json();const list=document.getElementById('archives-list');
+        if(!d.success||!d.data?.length){list.innerHTML='<p class="text-gray-400 text-sm text-center py-8">لا توجد صور أرشيفية بعد</p>';return;}
+        list.innerHTML=d.data.map(a=>`
+            <div class="item-card"><div class="flex items-start justify-between gap-3">
+                <div class="flex-1 min-w-0">
+                    <h4 class="font-bold text-gray-800 text-sm mb-1">${a.title}</h4>
+                    <p class="text-xs text-gray-500 mb-2">${a.description||''}</p>
+                    <div class="flex gap-2">
+                        ${a.image_old_url?`<img src="${a.image_old_url}" class="w-20 h-14 object-cover rounded-lg border border-gray-200">`:'<div class="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-[9px] text-gray-400">قديم</div>'}
+                        ${a.image_new_url?`<img src="${a.image_new_url}" class="w-20 h-14 object-cover rounded-lg border border-gray-200">`:'<div class="w-20 h-14 bg-gray-100 rounded-lg flex items-center justify-center text-[9px] text-gray-400">حديث</div>'}
+                    </div>
+                </div>
+                <div class="flex flex-col gap-1 flex-shrink-0">
+                    <button onclick="editArchive(${a.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:pencil"></span></button>
+                    <button onclick="deleteArchive(${a.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:trash-2"></span></button>
+                </div>
+            </div></div>`).join('');
+    } catch { document.getElementById('archives-list').innerHTML='<p class="text-red-400 text-sm text-center py-8">تعذر التحميل</p>'; }
+}
+async function saveArchive(){
+    const editId=document.getElementById('archives-edit-id').value;
+    const body={
+        title:       document.getElementById('archives-title').value,
+        description: document.getElementById('archives-desc').value,
+        image_old_url: document.getElementById('archives-old').value,
+        image_new_url: document.getElementById('archives-new').value,
+        title_fr:       document.getElementById('archives-title-fr')?.value||'',
+        description_fr: document.getElementById('archives-desc-fr')?.value||'',
+    };
+    if(!body.title){adminToast('العنوان مطلوب');return;}
+    try{
+        const url=editId?'/api/archives?id='+editId:'/api/archives';
+        const res=await fetch(url,{method:editId?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(body)});
+        const d=await res.json();
+        if(d.success){adminToast(editId?'تم التعديل':'تمت الإضافة');cancelArchiveEdit();loadArchives();}
+        else adminToast('خطأ: '+(d.error||'فشل الحفظ'));
+    }catch(e){adminToast('تعذر الحفظ: '+e.message);}
+}
+async function editArchive(id){
+    const res=await fetch('/api/archives',{headers:authHeaders()});const d=await res.json();const a=d.data.find(x=>x.id==id);if(!a)return;
+    document.getElementById('archives-edit-id').value=a.id;
+    document.getElementById('archives-title').value=a.title;
+    document.getElementById('archives-desc').value=a.description||'';
+    if(document.getElementById('archives-title-fr')) document.getElementById('archives-title-fr').value=a.title_fr||'';
+    if(document.getElementById('archives-desc-fr'))  document.getElementById('archives-desc-fr').value=a.description_fr||'';
+    document.getElementById('archives-old').value=a.image_old_url||'';document.getElementById('archives-new').value=a.image_new_url||'';
+    document.getElementById('archives-old-url-manual').value=a.image_old_url||'';document.getElementById('archives-new-url-manual').value=a.image_new_url||'';
+    ['old','new'].forEach(s=>{const url=s==='old'?a.image_old_url:a.image_new_url;if(url){document.getElementById('archives-'+s+'-placeholder').classList.add('hidden');document.getElementById('archives-'+s+'-img').src=url;document.getElementById('archives-'+s+'-preview').classList.remove('hidden');document.getElementById('archives-'+s+'-widget').classList.add('has-image');}});
+    document.getElementById('archives-form-title').textContent='تعديل الصورة الأرشيفية';document.getElementById('archives-cancel-btn').classList.remove('hidden');
+    toggleFormPanel('archives', true);}
+function cancelArchiveEdit(){
+    ['archives-edit-id','archives-title','archives-desc'].forEach(id=>document.getElementById(id).value='');
+    if(document.getElementById('archives-title-fr')) document.getElementById('archives-title-fr').value='';
+    if(document.getElementById('archives-desc-fr'))  document.getElementById('archives-desc-fr').value='';
+    clearWidget('archives-old','archives-old','archives-old-url-manual');clearWidget('archives-new','archives-new','archives-new-url-manual');
+    document.getElementById('archives-form-title').textContent='إضافة صورة أرشيفية'; toggleFormPanel('archives', false);document.getElementById('archives-cancel-btn').classList.add('hidden');
+}
+async function deleteArchive(id){
+    if(!confirm('حذف؟'))return;
+    try{
+        const r=await fetch('/api/archives',{headers:authHeaders()});
+        const d=await r.json();
+        const a=(d.data||[]).find(x=>x.id==id);
+        if(a) await deleteMultipleFromGitHub([a.image_old_url,a.image_new_url].filter(Boolean));
+    }catch(e){console.warn('deleteArchive GitHub:',e);}
+    try{await fetch('/api/archives?id='+id,{method:'DELETE',headers:authHeaders()});adminToast('تم الحذف');loadArchives();}catch{adminToast('تعذر الحذف');}
+}
+
+// ═══════════════════════════════
+// TOURISM
+// ═══════════════════════════════
+async function loadTourism(){
+    try{
+        const res=await fetch('/api/tourism',{headers:authHeaders()});const d=await res.json();const list=document.getElementById('tourism-list');
+        if(!d.success||!d.data?.length){list.innerHTML='<p class="text-gray-400 text-sm text-center py-8">لا توجد معالم بعد</p>';return;}
+        list.innerHTML=d.data.map(t=>`
+            <div class="item-card">
+                <div class="flex items-start gap-3">
+                    ${t.image_url?`<img src="${t.image_url}" class="w-16 h-14 object-cover rounded-xl flex-shrink-0">`:'<div class="w-16 h-14 bg-gray-100 rounded-xl flex items-center justify-center flex-shrink-0"><span class="iconify text-gray-300 text-xl" data-icon="lucide:image-off"></span></div>'}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1"><span class="inline-block bg-${t.badge_color||'emerald'}-100 text-${t.badge_color||'emerald'}-700 text-[10px] font-bold px-2 py-0.5 rounded-full">${t.badge_text||''}</span><span class="text-[10px] text-gray-400">⭐ ${t.rating||''}</span></div>
+                        <h4 class="font-bold text-gray-800 text-sm truncate mb-0.5">${t.name}</h4>
+                        <p class="text-xs text-gray-500 line-clamp-2">${(t.description||'').substring(0,80)}...</p>
+                    </div>
+                    <div class="flex flex-col gap-1 flex-shrink-0">
+                        <button onclick="openTourismAlbum_admin(${t.id})" class="w-8 h-8 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg flex items-center justify-center" title="ألبوم"><span class="iconify text-sm" data-icon="lucide:images"></span></button>
+                        <button onclick="editTourism(${t.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:pencil"></span></button>
+                        <button onclick="deleteTourism(${t.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:trash-2"></span></button>
+                    </div>
+                </div>
+                <!-- ألبوم السياحة -->
+                <div id="tourism-album-panel-${t.id}" class="hidden mt-3 pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-gray-600">📸 ألبوم الصور</span>
+                        <button onclick="triggerUpload('tourism-album-input-${t.id}')" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-2 py-1 rounded-lg font-bold">+ إضافة صورة</button>
+                    </div>
+                    <input type="file" id="tourism-album-input-${t.id}" accept="image/*" class="hidden" onchange="handleTourismAlbumUpload_admin(this,${t.id})">
+                    <div id="tourism-album-grid-${t.id}" class="grid grid-cols-4 gap-2">
+                        <div class="col-span-4 text-xs text-gray-400 text-center py-2">اضغط على أيقونة الألبوم لعرض الصور</div>
+                    </div>
+                </div>
+            </div>`).join('');
+    } catch { document.getElementById('tourism-list').innerHTML='<p class="text-red-400 text-sm text-center py-8">تعذر التحميل</p>'; }
+}
+async function saveTourism(){
+    const editId=document.getElementById('tourism-edit-id').value;
+    const body={
+        name:document.getElementById('tourism-name').value,
+        name_fr:document.getElementById('tourism-name-fr')?.value||'',
+        subtitle:document.getElementById('tourism-subtitle').value,
+        subtitle_fr:document.getElementById('tourism-subtitle-fr')?.value||'',
+        description:document.getElementById('tourism-desc').value,
+        description_fr:document.getElementById('tourism-desc-fr')?.value||'',
+        image_url:document.getElementById('tourism-image').value,
+        rating:document.getElementById('tourism-rating').value,
+        distance_info:   document.getElementById('tourism-distance').value,
+        distance_info_fr:document.getElementById('tourism-distance-fr')?.value||'',
+        badge_text:      document.getElementById('tourism-badge').value,
+        badge_text_fr:   document.getElementById('tourism-badge-fr')?.value||'',
+        badge_color:     document.getElementById('tourism-badge-color').value,
+        lat:parseFloat(document.getElementById('tourism-lat').value)||null,
+        lng:parseFloat(document.getElementById('tourism-lng').value)||null
+    };
+    if(!body.name){adminToast('الاسم مطلوب');return;}
+    try{const res=await fetch(editId?'/api/tourism?id='+editId:'/api/tourism',{method:editId?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(body)});const d=await res.json();if(d.success){adminToast(editId?'تم التعديل':'تمت الإضافة');cancelTourismEdit();loadTourism();}else adminToast('خطأ: '+(d.error||''));}catch(e){adminToast('تعذر الحفظ: '+e.message);}
+}
+async function editTourism(id){
+    const res=await fetch('/api/tourism',{headers:authHeaders()});const d=await res.json();const t=d.data.find(x=>x.id==id);if(!t)return;
+    document.getElementById('tourism-edit-id').value=t.id;
+    document.getElementById('tourism-name').value=t.name;
+    document.getElementById('tourism-subtitle').value=t.subtitle||'';
+    document.getElementById('tourism-desc').value=t.description||'';
+    if(document.getElementById('tourism-name-fr')) document.getElementById('tourism-name-fr').value=t.name_fr||'';
+    if(document.getElementById('tourism-subtitle-fr')) document.getElementById('tourism-subtitle-fr').value=t.subtitle_fr||'';
+    if(document.getElementById('tourism-desc-fr')) document.getElementById('tourism-desc-fr').value=t.description_fr||'';
+    document.getElementById('tourism-image').value=t.image_url||'';document.getElementById('tourism-rating').value=t.rating||'4.5';document.getElementById('tourism-distance').value=t.distance_info||'';document.getElementById('tourism-badge').value=t.badge_text||'';document.getElementById('tourism-badge-color').value=t.badge_color||'emerald';document.getElementById('tourism-image-manual').value=t.image_url||'';
+    if(document.getElementById('tourism-distance-fr')) document.getElementById('tourism-distance-fr').value=t.distance_info_fr||'';
+    if(document.getElementById('tourism-badge-fr'))    document.getElementById('tourism-badge-fr').value=t.badge_text_fr||'';
+    if(t.image_url){document.getElementById('tourism-img-placeholder').classList.add('hidden');document.getElementById('tourism-img-img').src=t.image_url;document.getElementById('tourism-img-preview').classList.remove('hidden');document.getElementById('tourism-img-widget').classList.add('has-image');}
+    document.getElementById('tourism-lat').value=t.lat||'';
+    document.getElementById('tourism-lng').value=t.lng||'';
+    document.getElementById('tourism-form-title').textContent='تعديل المعلم';document.getElementById('tourism-cancel-btn').classList.remove('hidden');
+    toggleFormPanel('tourism', true);}
+function cancelTourismEdit(){
+    ['tourism-edit-id','tourism-name','tourism-subtitle','tourism-desc','tourism-image','tourism-image-manual','tourism-distance','tourism-badge','tourism-lat','tourism-lng'].forEach(id=>document.getElementById(id).value='');
+    if(document.getElementById('tourism-name-fr'))     document.getElementById('tourism-name-fr').value='';
+    if(document.getElementById('tourism-subtitle-fr')) document.getElementById('tourism-subtitle-fr').value='';
+    if(document.getElementById('tourism-desc-fr'))     document.getElementById('tourism-desc-fr').value='';
+    if(document.getElementById('tourism-distance-fr')) document.getElementById('tourism-distance-fr').value='';
+    if(document.getElementById('tourism-badge-fr'))    document.getElementById('tourism-badge-fr').value='';
+    document.getElementById('tourism-rating').value='4.5';document.getElementById('tourism-badge-color').value='emerald';
+    clearWidget('tourism-img','tourism-image','tourism-image-manual');
+    document.getElementById('tourism-form-title').textContent='إضافة معلم سياحي'; toggleFormPanel('tourism', false);document.getElementById('tourism-cancel-btn').classList.add('hidden');
+}
+async function deleteTourism(id){
+    if(!confirm('حذف؟'))return;
+    try{
+        const r=await fetch('/api/tourism',{headers:authHeaders()});
+        const d=await r.json();
+        const t=(d.data||[]).find(x=>x.id==id);
+        if(t){
+            const urls=[t.image_url].filter(Boolean);
+            try{const ab=JSON.parse(t.albums||'[]');ab.forEach(a=>urls.push(a.image_url));}catch{}
+            await deleteMultipleFromGitHub(urls);
+        }
+    }catch(e){console.warn('deleteTourism GitHub:',e);}
+    try{await fetch('/api/tourism?id='+id,{method:'DELETE',headers:authHeaders()});adminToast('تم الحذف');loadTourism();}catch{adminToast('تعذر الحذف');}
+}
+
+// ═══════════════════════════════
+// MAYORS
+// ═══════════════════════════════
+async function loadMayors(){
+    try{
+        const res=await fetch('/api/mayors',{headers:authHeaders()});const d=await res.json();const list=document.getElementById('mayors-list');
+        if(!d.success||!d.data?.length){list.innerHTML='<p class="text-gray-400 text-sm text-center py-8">لا توجد بيانات بعد</p>';return;}
+        list.innerHTML=d.data.map(m=>`
+            <div class="item-card"><div class="flex items-center justify-between gap-3">
+                <div class="flex items-center gap-3 flex-1 min-w-0">
+                    ${m.image_url?`<img src="${m.image_url}" class="w-12 h-12 rounded-full object-cover border-2 border-emerald-200 flex-shrink-0">`:'<div class="w-12 h-12 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0"><span class="iconify text-emerald-500 text-xl" data-icon="lucide:user"></span></div>'}
+                    <div class="min-w-0"><h4 class="font-bold text-gray-800 text-sm truncate">${m.name}${m.is_dec?'<span class="mr-1.5 inline-block bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-amber-200">DEC</span>':''}</h4><p class="text-xs text-gray-500">${m.period}</p></div>
+                </div>
+                <div class="flex items-center gap-1 flex-shrink-0">
+                    <button onclick="editMayor(${m.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:pencil"></span></button>
+                    <button onclick="deleteMayor(${m.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:trash-2"></span></button>
+                </div>
+            </div></div>`).join('');
+    } catch { document.getElementById('mayors-list').innerHTML='<p class="text-red-400 text-sm text-center py-8">تعذر التحميل</p>'; }
+}
+async function saveMayor(){
+    const editId=document.getElementById('mayors-edit-id').value;
+    const body={
+        name:       document.getElementById('mayors-name').value,
+        period:     document.getElementById('mayors-period').value,
+        image_url:  document.getElementById('mayors-image').value,
+        name_fr:    document.getElementById('mayors-name-fr')?.value||'',
+        period_fr:  document.getElementById('mayors-period-fr')?.value||'',
+        is_dec:     document.getElementById('mayors-is-dec')?.checked||false,
+    };
+    if(!body.name||!body.period){adminToast('الاسم والفترة مطلوبان');return;}
+    try{const res=await fetch(editId?'/api/mayors?id='+editId:'/api/mayors',{method:editId?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(body)});const d=await res.json();if(d.success){adminToast(editId?'تم التعديل':'تمت الإضافة');cancelMayorEdit();loadMayors();}else adminToast('خطأ: '+(d.error||''));}catch(e){adminToast('تعذر الحفظ: '+e.message);}
+}
+async function editMayor(id){
+    const res=await fetch('/api/mayors',{headers:authHeaders()});const d=await res.json();const m=d.data.find(x=>x.id==id);if(!m)return;
+    document.getElementById('mayors-edit-id').value=m.id;
+    document.getElementById('mayors-name').value=m.name;
+    document.getElementById('mayors-period').value=m.period;
+    document.getElementById('mayors-image').value=m.image_url||'';
+    document.getElementById('mayors-image-manual').value=m.image_url||'';
+    if(document.getElementById('mayors-name-fr'))   document.getElementById('mayors-name-fr').value=m.name_fr||'';
+    if(document.getElementById('mayors-period-fr')) document.getElementById('mayors-period-fr').value=m.period_fr||'';
+    if(document.getElementById('mayors-is-dec'))    document.getElementById('mayors-is-dec').checked=!!(m.is_dec);
+    if(m.image_url){document.getElementById('mayors-img-placeholder').classList.add('hidden');document.getElementById('mayors-img-img').src=m.image_url;document.getElementById('mayors-img-preview').classList.remove('hidden');document.getElementById('mayors-img-widget').classList.add('has-image');}
+    document.getElementById('mayors-form-title').textContent='تعديل الرئيس';document.getElementById('mayors-cancel-btn').classList.remove('hidden');
+    toggleFormPanel('mayors', true);}
+function cancelMayorEdit(){
+    ['mayors-edit-id','mayors-name','mayors-period','mayors-image','mayors-image-manual'].forEach(id=>document.getElementById(id).value='');
+    if(document.getElementById('mayors-name-fr'))   document.getElementById('mayors-name-fr').value='';
+    if(document.getElementById('mayors-period-fr')) document.getElementById('mayors-period-fr').value='';
+    if(document.getElementById('mayors-is-dec'))    document.getElementById('mayors-is-dec').checked=false;
+    clearWidget('mayors-img','mayors-image','mayors-image-manual');
+    document.getElementById('mayors-form-title').textContent='إضافة رئيس'; toggleFormPanel('mayors', false);document.getElementById('mayors-cancel-btn').classList.add('hidden');
+}
+async function deleteMayor(id){
+    if(!confirm('حذف؟'))return;
+    try{
+        const r=await fetch('/api/mayors',{headers:authHeaders()});
+        const d=await r.json();
+        const m=(d.data||[]).find(x=>x.id==id);
+        if(m) await deleteFromGitHub(m.image_url);
+    }catch(e){console.warn('deleteMayor GitHub:',e);}
+    try{await fetch('/api/mayors?id='+id,{method:'DELETE',headers:authHeaders()});adminToast('تم الحذف');loadMayors();}catch{adminToast('تعذر الحذف');}
+}
+
+// ═══════════════════════════════
+// 🏖️ BEACHES ADMIN
+// ═══════════════════════════════
+async function loadBeaches_admin(){
+    try{
+        const res=await fetch('/api/beaches',{headers:authHeaders()});
+        const d=await res.json(); const list=document.getElementById('beaches-list');
+        if(!d.success||!d.data?.length){list.innerHTML='<p class="text-gray-400 text-sm text-center py-8">لا توجد شواطئ بعد</p>';return;}
+        list.innerHTML=d.data.map(b=>`
+            <div class="item-card">
+                <div class="flex items-start gap-3">
+                    ${b.image_url?`<img src="${b.image_url}" class="w-16 h-14 object-cover rounded-xl flex-shrink-0">`:'<div class="w-16 h-14 bg-sky-100 rounded-xl flex items-center justify-center flex-shrink-0"><span class="iconify text-sky-400 text-2xl" data-icon="lucide:waves"></span></div>'}
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-2 mb-1">
+                            ${b.is_supervised?'<span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">مراقب</span>':''}
+                            <span class="text-[10px] bg-sky-50 text-sky-600 px-2 py-0.5 rounded-full font-bold">${b.season==='صخري'?'🪨 صخري':'🏖️ رملي'}</span>
+                        </div>
+                        <h4 class="font-bold text-gray-800 text-sm truncate mb-1">${b.name}</h4>
+                        <p class="text-xs text-gray-500 line-clamp-2">${(b.description||'').substring(0,80)}</p>
+                    </div>
+                    <div class="flex flex-col gap-1 flex-shrink-0">
+                        <button onclick="openBeachAlbum(${b.id},'${b.name}')" class="w-8 h-8 bg-sky-50 hover:bg-sky-100 text-sky-600 rounded-lg flex items-center justify-center" title="ألبوم الصور"><span class="iconify text-sm" data-icon="lucide:images"></span></button>
+                        <button onclick="editBeach(${b.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:pencil"></span></button>
+                        <button onclick="deleteBeach(${b.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:trash-2"></span></button>
+                    </div>
+                </div>
+                <!-- ألبوم الشاطئ -->
+                <div id="beach-album-panel-${b.id}" class="hidden mt-3 pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-bold text-gray-600">📸 ألبوم الصور</span>
+                        <button onclick="triggerUpload('beach-album-input-${b.id}')" class="text-xs bg-sky-100 hover:bg-sky-200 text-sky-700 px-2 py-1 rounded-lg font-bold">+ إضافة صورة</button>
+                    </div>
+                    <input type="file" id="beach-album-input-${b.id}" accept="image/*" class="hidden" onchange="handleBeachAlbumUpload(this,${b.id})">
+                    <div id="beach-album-grid-${b.id}" class="grid grid-cols-4 gap-2">
+                        <div class="col-span-4 text-xs text-gray-400 text-center py-2">جاري التحميل...</div>
+                    </div>
+                </div>
+            </div>`).join('');
+    } catch { document.getElementById('beaches-list').innerHTML='<p class="text-red-400 text-sm text-center py-8">تعذر التحميل</p>'; }
+}
+
+async function saveBeach(){
+    const editId=document.getElementById('beaches-edit-id').value;
+    const body={
+        name:document.getElementById('beaches-name').value,
+        name_fr:document.getElementById('beaches-name-fr')?.value||'',
+        description:document.getElementById('beaches-desc').value,
+        description_fr:document.getElementById('beaches-desc-fr')?.value||'',
+        image_url:document.getElementById('beaches-image').value,
+        is_supervised:document.getElementById('beaches-supervised').checked?1:0,
+        season:document.getElementById('beaches-season').value,
+        lat:parseFloat(document.getElementById('beaches-lat').value)||null,
+        lng:parseFloat(document.getElementById('beaches-lng').value)||null
+    };
+    if(!body.name){adminToast('الاسم مطلوب');return;}
+    try{
+        const res=await fetch(editId?'/api/beaches?id='+editId:'/api/beaches',{method:editId?'PUT':'POST',headers:authHeaders(),body:JSON.stringify(body)});
+        const d=await res.json();
+        if(d.success){adminToast(editId?'تم التعديل':'تمت الإضافة');cancelBeachEdit();loadBeaches_admin();}
+        else adminToast('خطأ: '+(d.error||''));
+    }catch(e){adminToast('تعذر الحفظ: '+e.message);}
+}
+
+async function editBeach(id){
+    const res=await fetch('/api/beaches?id='+id,{headers:authHeaders()});
+    const d=await res.json(); const b=d.data; if(!b) return;
+    document.getElementById('beaches-edit-id').value=b.id;
+    document.getElementById('beaches-name').value=b.name;
+    document.getElementById('beaches-desc').value=b.description||'';
+    if(document.getElementById('beaches-name-fr')) document.getElementById('beaches-name-fr').value=b.name_fr||'';
+    if(document.getElementById('beaches-desc-fr')) document.getElementById('beaches-desc-fr').value=b.description_fr||'';
+    document.getElementById('beaches-image').value=b.image_url||'';
+    document.getElementById('beaches-image-manual').value=b.image_url||'';
+    document.getElementById('beaches-supervised').checked=b.is_supervised==1;
+    document.getElementById('beaches-season').value=b.season||'رملي';
+    if(b.image_url){document.getElementById('beaches-img-placeholder').classList.add('hidden');document.getElementById('beaches-img-img').src=b.image_url;document.getElementById('beaches-img-preview').classList.remove('hidden');document.getElementById('beaches-img-widget').classList.add('has-image');}
+    document.getElementById('beaches-lat').value=b.lat||'';
+    document.getElementById('beaches-lng').value=b.lng||'';
+    document.getElementById('beaches-form-title').textContent='تعديل الشاطئ';
+    toggleFormPanel('beaches', true);    document.getElementById('beaches-cancel-btn').classList.remove('hidden');
+    window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function cancelBeachEdit(){
+    ['beaches-edit-id','beaches-name','beaches-desc','beaches-lat','beaches-lng'].forEach(id=>document.getElementById(id).value='');
+    if(document.getElementById('beaches-name-fr')) document.getElementById('beaches-name-fr').value='';
+    if(document.getElementById('beaches-desc-fr')) document.getElementById('beaches-desc-fr').value='';
+    document.getElementById('beaches-season').value='رملي';
+    document.getElementById('beaches-supervised').checked=true;
+    clearWidget('beaches-img','beaches-image','beaches-image-manual');
+    document.getElementById('beaches-form-title').textContent='إضافة شاطئ'; toggleFormPanel('beaches', false);
+    document.getElementById('beaches-cancel-btn').classList.add('hidden');
+}
+
+async function deleteBeach(id){
+    if(!confirm('حذف الشاطئ وكل صوره؟')) return;
+    try{
+        const r=await fetch('/api/beaches',{headers:authHeaders()});
+        const d=await r.json();
+        const b=(d.data||[]).find(x=>x.id==id);
+        if(b){
+            const urls=[b.image_url].filter(Boolean);
+            try{const ab=JSON.parse(b.albums||'[]');ab.forEach(a=>urls.push(a.image_url));}catch{}
+            await deleteMultipleFromGitHub(urls);
+        }
+    }catch(e){console.warn('deleteBeach GitHub:',e);}
+    try{await fetch('/api/beaches?id='+id,{method:'DELETE',headers:authHeaders()});adminToast('تم الحذف');loadBeaches_admin();}
+    catch{adminToast('تعذر الحذف');}
+}
+
+// ألبوم الشاطئ
+async function openBeachAlbum(beachId, beachName){
+    const panel = document.getElementById('beach-album-panel-'+beachId);
+    panel.classList.toggle('hidden');
+    if(!panel.classList.contains('hidden')) loadBeachAlbum(beachId);
+}
+
+async function loadBeachAlbum(beachId){
+    const grid=document.getElementById('beach-album-grid-'+beachId);
+    try{
+        const res=await fetch('/api/beaches?id='+beachId,{headers:authHeaders()});
+        const d=await res.json(); const albums=d.data?.albums||[];
+        if(!albums.length){grid.innerHTML='<p class="col-span-4 text-xs text-gray-400 text-center py-2">لا توجد صور في الألبوم بعد</p>';return;}
+        grid.innerHTML=albums.map(a=>`
+            <div class="relative group">
+                <img src="${a.image_url}" class="w-full h-16 object-cover rounded-lg">
+                <button onclick="deleteBeachAlbumImg(${a.id},${beachId})"
+                        class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            </div>`).join('');
+    } catch{ grid.innerHTML='<p class="col-span-4 text-xs text-red-400 text-center py-2">تعذر التحميل</p>'; }
+}
+
+async function handleBeachAlbumUpload(input, beachId){
+    const file=input.files[0]; if(!file) return; input.value='';
+    const grid=document.getElementById('beach-album-grid-'+beachId);
+    grid.innerHTML='<div class="col-span-4 text-xs text-indigo-500 text-center py-2 flex items-center justify-center gap-1"><span class="iconify spin" data-icon="lucide:loader-2"></span>جاري الرفع...</div>';
+    try{
+        const url=await uploadFile(file,'beaches');
+        const res=await fetch('/api/beaches?action=album',{
+            method:'POST',
+            headers:{...authHeaders(),'Content-Type':'application/json'},
+            body:JSON.stringify({beach_id:Number(beachId),image_url:url})
+        });
+        const d=await res.json();
+        if(d.success){adminToast('✅ تمت إضافة الصورة');loadBeachAlbum(beachId);loadRepoSize();}
+        else adminToast('❌ '+d.error);
+    }catch(e){adminToast('❌ '+e.message);grid.innerHTML='';}
+}
+
+async function deleteBeachAlbumImg(albumId, beachId){
+    if(!confirm('حذف الصورة؟')) return;
+    try{
+        // جلب رابط الصورة من API قبل الحذف
+        const r=await fetch('/api/beaches?id='+beachId,{headers:authHeaders()});
+        const d=await r.json();
+        const albums=d.data?.albums||[];
+        const alb=albums.find(a=>a.id==albumId);
+        if(alb) await deleteFromGitHub(alb.image_url);
+    }catch(e){console.warn('deleteBeachAlbumImg GitHub:',e);}
+    try{await fetch('/api/beaches?action=album&album_id='+albumId,{method:'DELETE',headers:authHeaders()});loadBeachAlbum(beachId);}
+    catch{adminToast('تعذر الحذف');}
+}
+
+// ══ ألبوم السياحة (في تبويب tourism) ══
+async function openTourismAlbum_admin(tourismId){
+    const panel=document.getElementById('tourism-album-panel-'+tourismId);
+    panel.classList.toggle('hidden');
+    if(!panel.classList.contains('hidden')) loadTourismAlbum_admin(tourismId);
+}
+
+async function loadTourismAlbum_admin(tourismId){
+    const grid=document.getElementById('tourism-album-grid-'+tourismId);
+    try{
+        const res=await fetch('/api/tourism?id='+tourismId,{headers:authHeaders()});
+        const d=await res.json(); const albums=d.data?.albums||[];
+        if(!albums.length){grid.innerHTML='<p class="col-span-4 text-xs text-gray-400 text-center py-2">لا توجد صور في الألبوم</p>';return;}
+        grid.innerHTML=albums.map(a=>`
+            <div class="relative group">
+                <img src="${a.image_url}" class="w-full h-16 object-cover rounded-lg">
+                <button onclick="deleteTourismAlbumImg(${a.id},${tourismId})"
+                        class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+            </div>`).join('');
+    } catch{}
+}
+
+async function handleTourismAlbumUpload_admin(input, tourismId){
+    const file=input.files[0]; if(!file) return; input.value='';
+    try{
+        const url=await uploadFile(file,'tourism');
+        const res=await fetch('/api/tourism?action=album',{method:'POST',headers:authHeaders(),body:JSON.stringify({tourism_id:tourismId,image_url:url})});
+        const d=await res.json();
+        if(d.success){adminToast('✅ تمت إضافة الصورة');loadTourismAlbum_admin(tourismId);loadRepoSize();}
+        else adminToast('❌ '+d.error);
+    }catch(e){adminToast('❌ '+e.message);}
+}
+
+async function deleteTourismAlbumImg(albumId, tourismId){
+    if(!confirm('حذف الصورة؟')) return;
+    try{
+        const r=await fetch('/api/tourism?id='+tourismId,{headers:authHeaders()});
+        const d=await r.json();
+        const albums=d.data?.albums||[];
+        const alb=albums.find(a=>a.id==albumId);
+        if(alb) await deleteFromGitHub(alb.image_url);
+    }catch(e){console.warn('deleteTourismAlbumImg GitHub:',e);}
+    try{await fetch('/api/tourism?action=album&album_id='+albumId,{method:'DELETE',headers:authHeaders()});loadTourismAlbum_admin(tourismId);}
+    catch{adminToast('تعذر الحذف');}
+}
+
+// ══════════════════════════════════
+// FACILITIES ADMIN
+// ══════════════════════════════════
+const FAC_CATS = {
+    religious:{ label:'دينية',      icon:'lucide:moon',          color:'bg-emerald-700' },
+    cultural: { label:'ثقافية',     icon:'lucide:drama',         color:'bg-purple-700'  },
+    sports:   { label:'رياضية',     icon:'lucide:trophy',        color:'bg-orange-600'  },
+    public:   { label:'خدمات عمومية',icon:'lucide:building',     color:'bg-blue-700'    },
+    training: { label:'تكوين',      icon:'lucide:graduation-cap',color:'bg-teal-700'    },
+    assoc:    { label:'جمعيات',     icon:'lucide:users',         color:'bg-rose-700'    },
+    branches: { label:'فروع إدارية',       icon:'lucide:landmark',    color:'bg-emerald-600' },
+    education:{ label:'التعليم والتكوين', icon:'lucide:school',      color:'bg-indigo-600'  },
+    health:   { label:'صحية',             icon:'lucide:heart-pulse', color:'bg-red-600'     },
+    public_bodies:{ label:'الهيئات العمومية', icon:'lucide:building-2', color:'bg-blue-600' },
+};
+let facAdminCat = 'religious', facEditId = '', facAlbumUrls = [];
+
+async function loadFacilitiesAdmin() {
+    const grid = document.getElementById('fac-admin-list');
+    if(!grid) return;
+    grid.innerHTML = '<p class="text-center text-gray-400 py-8 col-span-full">جاري التحميل...</p>';
+    try {
+        const res = await fetch('/api/facilities?cat='+facAdminCat, {headers:authHeaders()});
+        const d   = await res.json();
+        if(!d.success || !d.data.length) { grid.innerHTML='<p class="text-center text-gray-400 py-8 col-span-full">لا توجد مرافق</p>'; return; }
+        grid.innerHTML = d.data.map(f => {
+            const tags = Array.isArray(f.tags) ? f.tags : [];
+            return `<div class="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
+                <div class="flex items-start gap-3">
+                    ${f.image_url ? `<img src="${f.image_url}" class="w-12 h-12 rounded-xl object-cover flex-shrink-0">` : `<div class="w-12 h-12 ${FAC_CATS[facAdminCat]?.color||'bg-gray-400'} rounded-xl flex-shrink-0 flex items-center justify-center"><span class="iconify text-white text-xl" data-icon="${FAC_CATS[facAdminCat]?.icon||'lucide:building-2'}"></span></div>`}
+                    <div class="flex-1 min-w-0">
+                        <p class="font-extrabold text-gray-800 text-sm truncate">${f.name}</p>
+                        <p class="text-xs text-gray-400">${f.sub_type||''}</p>
+                        <div class="flex flex-wrap gap-1 mt-1">${tags.map(t=>`<span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">${t}</span>`).join('')}</div>
+                    </div>
+                    <div class="flex gap-1 flex-shrink-0">
+                        <button onclick="editFacility(${f.id})" class="w-8 h-8 bg-blue-50 hover:bg-blue-100 text-blue-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:pencil"></span></button>
+                        <button onclick="deleteFacility(${f.id})" class="w-8 h-8 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg flex items-center justify-center"><span class="iconify text-sm" data-icon="lucide:trash-2"></span></button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+        if(window.Iconify) Iconify.scan();
+    } catch(e) { grid.innerHTML='<p class="text-red-400 text-center py-8">تعذر التحميل</p>'; }
+}
+
+function filterFacAdmin(cat) {
+    facAdminCat = cat;
+    // تحديث أزرار الفلترة
+    document.querySelectorAll('.fac-filter-btn').forEach(b => {
+        const isCat = b.id === 'fac-filter-' + cat;
+        b.className = 'fac-filter-btn text-xs px-3 py-1.5 rounded-lg font-bold ' +
+                      (isCat ? 'bg-slate-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200');
+    });
+    loadFacilitiesAdmin();
+}
+
+function switchFacAdminCat(cat) {
+    facAdminCat = cat;
+    document.querySelectorAll('.fac-admin-cat-btn').forEach(b => {
+        b.classList.toggle('bg-emerald-600', b.dataset.cat === cat);
+        b.classList.toggle('text-white', b.dataset.cat === cat);
+        b.classList.toggle('bg-gray-100', b.dataset.cat !== cat);
+        b.classList.toggle('text-gray-600', b.dataset.cat !== cat);
+    });
+    document.getElementById('facilities-category').value = cat;
+    loadFacilitiesAdmin();
+}
+
+function renderFacAlbum() {
+    const el = document.getElementById('fac-album-grid');
+    if(!el) return;
+    el.innerHTML = facAlbumUrls.length
+        ? facAlbumUrls.map((u,i) => `<div class="relative group"><img src="${u}" class="w-full h-16 object-cover rounded-lg"><button onclick="facAlbumUrls.splice(${i},1);document.getElementById('facilities-albums').value=JSON.stringify(facAlbumUrls);renderFacAlbum()" class="absolute top-1 right-1 w-5 h-5 bg-red-500 text-white rounded-full text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100">✕</button></div>`).join('')
+        : '<p class="col-span-3 text-xs text-gray-400 text-center py-2">لا توجد صور في الألبوم</p>';
+}
+
+async function handleFacImageUpload(input) {
+    const file = input.files[0]; if(!file) return; input.value='';
+    adminToast('جاري الرفع...');
+    try {
+        const url = await uploadFile(file, 'facilities');
+        document.getElementById('fac-image').value = url;
+        const _fip=document.getElementById('fac-img-img'); if(_fip) _fip.src = url;
+        const _fipw=document.getElementById('fac-img-preview'); if(_fipw){_fipw.classList.remove('hidden');document.getElementById('fac-img-placeholder').classList.add('hidden');}
+        adminToast('✅ تم رفع الصورة');
+    } catch(e) { adminToast('❌ '+e.message); }
+}
+
+async function handleFacAlbumUpload(input) {
+    const files = Array.from(input.files); if(!files.length) return; input.value='';
+    adminToast('جاري رفع الصور...');
+    try {
+        for(const file of files) {
+            const url = await uploadFile(file, 'facilities');
+            facAlbumUrls.push(url);
+        }
+        document.getElementById('facilities-albums').value = JSON.stringify(facAlbumUrls);
+        renderFacAlbum();
+        adminToast('✅ تم رفع '+files.length+' صورة');
+        loadRepoSize();
+    } catch(e) { adminToast('❌ '+e.message); }
+}
+
+async function editFacility(id) {
+    try {
+        const res = await fetch('/api/facilities', {headers:authHeaders()});
+        const d   = await res.json();
+        const f   = d.data.find(x => x.id == id);
+        if(!f) return;
+        facEditId = id;
+        document.getElementById('facilities-edit-id').value = id;
+        document.getElementById('facilities-name').value = f.name;
+        document.getElementById('facilities-subtype').value = f.sub_type||'';
+        document.getElementById('facilities-desc').value = f.description||'';
+        document.getElementById('facilities-category').value = f.category;
+        document.getElementById('facilities-image').value = f.image_url||'';
+        document.getElementById('facilities-image-manual').value = f.image_url||'';
+        // معاينة الصورة
+        const imgImg = document.getElementById('fac-img-img');
+        const imgPrev = document.getElementById('fac-img-preview');
+        const imgPlaceholder = document.getElementById('fac-img-placeholder');
+        if(f.image_url){
+            imgImg.src = f.image_url;
+            imgPrev.classList.remove('hidden');
+            imgPlaceholder.classList.add('hidden');
+        } else {
+            imgPrev.classList.add('hidden');
+            imgPlaceholder.classList.remove('hidden');
+        }
+        const tags = Array.isArray(f.tags) ? f.tags : [];
+        document.getElementById('facilities-tags').value = tags.join('، ');
+        if(document.getElementById('facilities-name-fr'))    document.getElementById('facilities-name-fr').value    = f.name_fr||'';
+        if(document.getElementById('facilities-subtype-fr')) document.getElementById('facilities-subtype-fr').value = f.sub_type_fr||'';
+        if(document.getElementById('facilities-desc-fr'))    document.getElementById('facilities-desc-fr').value    = f.description_fr||'';
+        if(document.getElementById('facilities-tags-fr'))    document.getElementById('facilities-tags-fr').value    = f.tags_fr||'';
+        facAlbumUrls = Array.isArray(f.albums) ? f.albums : [];
+        document.getElementById('facilities-albums').value = JSON.stringify(facAlbumUrls);
+        renderFacAlbum();
+        document.getElementById('facilities-lat').value = f.lat||'';
+        document.getElementById('facilities-lng').value = f.lng||'';
+        document.getElementById('facilities-form-title').textContent = 'تعديل مرفق';
+        document.getElementById('facilities-cancel-btn').classList.remove('hidden');
+        toggleFormPanel('facilities', true);
+    } catch(e) { adminToast('❌ '+e.message); }
+}
+
+function cancelFacilityEdit() {
+    facEditId = '';
+    document.getElementById('facilities-edit-id').value = '';
+    document.getElementById('facilities-name').value = '';
+    document.getElementById('facilities-subtype').value = '';
+    document.getElementById('facilities-desc').value = '';
+    document.getElementById('facilities-tags').value = '';
+    if(document.getElementById('facilities-name-fr')) document.getElementById('facilities-name-fr').value = '';
+    if(document.getElementById('facilities-subtype-fr')) document.getElementById('facilities-subtype-fr').value = '';
+    if(document.getElementById('facilities-desc-fr')) document.getElementById('facilities-desc-fr').value = '';
+    if(document.getElementById('facilities-tags-fr')) document.getElementById('facilities-tags-fr').value = '';
+    document.getElementById('facilities-image').value = '';
+    document.getElementById('facilities-image-manual').value = '';
+    document.getElementById('facilities-lat').value = '';
+    document.getElementById('facilities-lng').value = '';
+    const imgPrev = document.getElementById('fac-img-preview');
+    const imgPlaceholder = document.getElementById('fac-img-placeholder');
+    if(imgPrev) imgPrev.classList.add('hidden');
+    if(imgPlaceholder) imgPlaceholder.classList.remove('hidden');
+    facAlbumUrls = [];
+    document.getElementById('facilities-albums').value = '[]';
+    renderFacAlbum();
+    document.getElementById('facilities-form-title').textContent = 'إضافة مرفق';
+    document.getElementById('facilities-cancel-btn').classList.add('hidden');
+    toggleFormPanel('facilities', false);
+}
+
+async function saveFacility() {
+    const editId = document.getElementById('facilities-edit-id').value;
+    const name   = document.getElementById('facilities-name').value.trim();
+    const cat    = document.getElementById('facilities-category').value;
+    if(!name || !cat) { adminToast('الاسم والتصنيف مطلوبان','error'); return; }
+    const tagsRaw = document.getElementById('facilities-tags').value;
+    const tags = tagsRaw.split(/[،,]/).map(t=>t.trim()).filter(Boolean);
+    const tagsRawFr = document.getElementById('facilities-tags-fr')?.value || '';
+    const body = {
+        name, category: cat,
+        sub_type:       document.getElementById('facilities-subtype').value,
+        description:    document.getElementById('facilities-desc').value,
+        image_url:      document.getElementById('facilities-image').value,
+        tags, albums: facAlbumUrls,
+        lat: parseFloat(document.getElementById('facilities-lat').value)||null,
+        lng: parseFloat(document.getElementById('facilities-lng').value)||null,
+        name_fr:        document.getElementById('facilities-name-fr')?.value||'',
+        sub_type_fr:    document.getElementById('facilities-subtype-fr')?.value||'',
+        description_fr: document.getElementById('facilities-desc-fr')?.value||'',
+        tags_fr:        tagsRawFr,
+    };
+    try {
+        const url = editId ? '/api/facilities?id='+editId : '/api/facilities';
+        const res = await fetch(url, {method: editId?'PUT':'POST', headers:{...authHeaders(),'Content-Type':'application/json'}, body:JSON.stringify(body)});
+        const d   = await res.json();
+        if(d.success) { adminToast('✅ تم الحفظ'); cancelFacilityEdit(); loadFacilitiesAdmin(); }
+        else adminToast('❌ '+d.error,'error');
+    } catch(e) { adminToast('❌ '+e.message,'error'); }
+}
+
+async function deleteFacility(id) {
+    if(!confirm('حذف هذا المرفق؟')) return;
+    try {
+        const r=await fetch('/api/facilities',{headers:authHeaders()});
+        const d=await r.json();
+        const f=(d.data||[]).find(x=>x.id==id);
+        if(f){
+            const urls=[f.image_url].filter(Boolean);
+            try{const ab=JSON.parse(f.albums||'[]');ab.forEach(a=>urls.push(a.image_url));}catch{}
+            await deleteMultipleFromGitHub(urls);
+        }
+    }catch(e){console.warn('deleteFacility GitHub:',e);}
+    try {
+        await fetch('/api/facilities?id='+id, {method:'DELETE', headers:authHeaders()});
+        adminToast('✅ تم الحذف'); loadFacilitiesAdmin();
+    } catch(e) { adminToast('❌ '+e.message); }
+}
+</script>
+<footer class="bg-gray-100 border-t border-gray-200 py-3 text-center mt-4">
+    <p class="text-xs text-gray-400">© <span id="admin-yr"></span> بلدية شطايبي — جميع الحقوق محفوظة</p>
+</footer>
+<script>document.getElementById('admin-yr').textContent=new Date().getFullYear();</script>
+</body>
+</html>

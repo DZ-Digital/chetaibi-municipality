@@ -1,0 +1,17 @@
+name = "chetaibi-municipality"
+compatibility_date = "2024-12-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "chetaibi-db"
+database_id = "REPLACE_WITH_NEW_D1_ID"
+
+[vars]
+ADMIN_USERNAME  = "admin"
+JWT_SECRET      = "xK9mP2vR7nB4wQ8jL5sT1yF6hN3cA0dE"
+GITHUB_USERNAME = "DZ-Digital"
+CURRENT_REPO    = "chetaibi-assets-v1"
+
+# GITHUB_TOKEN و VAPID_PRIVATE → أضفهما من Dashboard كـ Secrets
+# Workers & Pages → مشروعك → Settings → Environment Variables → Encrypt
