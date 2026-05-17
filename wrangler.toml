@@ -5,7 +5,7 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "chetaibi-db"
-database_id = "88deecc8-4c2f-4bdb-8b1f-dba6dcaef585"
+database_id = "b7408fbc-8dea-4cb2-aaaf-ecec1f18a543"
 
 [vars]
 ADMIN_USERNAME  = "admin"
