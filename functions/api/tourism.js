@@ -18,8 +18,6 @@ export async function onRequestGet(context) {
         return createResponse({ success: true, data: results });
     } catch (e) { return createResponse({ success: false, error: e.message }, 500); }
 }
-}
-}
 
 export async function onRequestPost(context) {
     const auth = await withAuth(context); if (auth) return auth;
