@@ -10,13 +10,19 @@ export async function onRequestGet(context) {
         if (id) {
             const item = await context.env.DB.prepare('SELECT * FROM tourism WHERE id=?').bind(id).first();
             if (!item) return createResponse({ success: false, error: 'غير موجود' }, 404);
-            const { results: albums } = await context.env.DB
-                .prepare('SELECT * FROM tourism_albums WHERE tourism_id=? ORDER BY id').bind(id).all();
-            return createResponse({ success: true, data: { ...item, albums } });
+            // قراءة الألبوم من عمود album_urls (JSON) في نفس الجدول
+            let albums = [];
+            try { albums = JSON.parse(item.album_urls || '[]'); } catch(e) {}
+            const albumObjects = albums.map((a, i) => {
+                if (typeof a === 'string') return { id: i, image_url: a, caption: '' };
+                return a;
+            });
+            return createResponse({ success: true, data: { ...item, albums: albumObjects } });
         }
         const { results } = await context.env.DB.prepare('SELECT * FROM tourism ORDER BY id').all();
         return createResponse({ success: true, data: results });
     } catch (e) { return createResponse({ success: false, error: e.message }, 500); }
+}
 }
 
 export async function onRequestPost(context) {
