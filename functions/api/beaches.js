@@ -10,15 +10,9 @@ export async function onRequestGet(context) {
         if (id) {
             const beach = await context.env.DB.prepare('SELECT * FROM beaches WHERE id=?').bind(id).first();
             if (!beach) return createResponse({ success: false, error: 'غير موجود' }, 404);
-            // قراءة الألبوم من عمود album_urls (JSON) في نفس الجدول
-            let albums = [];
-            try { albums = JSON.parse(beach.album_urls || '[]'); } catch(e) {}
-            // تحويل الروابط إلى كائنات موحدة
-            const albumObjects = albums.map((item, i) => {
-                if (typeof item === 'string') return { id: i, image_url: item, caption: '' };
-                return item;
-            });
-            return createResponse({ success: true, data: { ...beach, albums: albumObjects } });
+            const { results: albums } = await context.env.DB
+                .prepare('SELECT * FROM beach_albums WHERE beach_id=? ORDER BY id').bind(id).all();
+            return createResponse({ success: true, data: { ...beach, albums } });
         }
         const { results } = await context.env.DB.prepare('SELECT * FROM beaches ORDER BY id').all();
         return createResponse({ success: true, data: results });
